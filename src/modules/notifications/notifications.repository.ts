@@ -1,14 +1,10 @@
 import type { PrismaClient } from "@prisma/client";
-import type { Logger } from "pino";
-import { getLogger } from "../../shared/logger/index.js";
 
 export class NotificationsRepository {
   private readonly prisma: PrismaClient;
-  private readonly logger: Logger;
 
   constructor(prisma: PrismaClient) {
     this.prisma = prisma;
-    this.logger = getLogger("notifications-repository");
   }
 
   async create(data: { userId: string; type: string; title: string; message: string }) {

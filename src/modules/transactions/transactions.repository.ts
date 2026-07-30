@@ -1,44 +1,13 @@
-import type { PrismaClient } from "@prisma/client";
-import type { Logger } from "pino";
-import { getLogger } from "../../shared/logger/index.js";
+import type { PrismaClient, Prisma } from "@prisma/client";
 import type { PaginationInput } from "../../shared/types/index.js";
 import { calculateOffset, createPaginatedResult } from "../../shared/utils/index.js";
 import type { TransactionFilterInput, TransactionSortInput } from "./transactions.types.js";
 
-interface TransactionRow {
-  id: string;
-  type: string;
-  amount: unknown;
-  currency: string;
-  description: string | null;
-  referenceId: string | null;
-  categoryId: string | null;
-  sourceId: string | null;
-  transferSourceId: string | null;
-  transferTargetId: string | null;
-  isCancelled: boolean;
-  cancelledAt: Date | null;
-  cancelledBy: string | null;
-  cancelReason: string | null;
-  transactionDate: Date;
-  isArchived: boolean;
-  archivedAt: Date | null;
-  createdBy: string;
-  createdAt: Date;
-  updatedAt: Date;
-  category: { id: string; name: string; emoji: string } | null;
-  source: { id: string; name: string; emoji: string } | null;
-  transferSource: { id: string; name: string; emoji: string } | null;
-  transferTarget: { id: string; name: string; emoji: string } | null;
-}
-
 export class TransactionsRepository {
   private readonly prisma: PrismaClient;
-  private readonly logger: Logger;
 
   constructor(prisma: PrismaClient) {
     this.prisma = prisma;
-    this.logger = getLogger("transactions-repository");
   }
 
   async create(data: {
@@ -80,7 +49,7 @@ export class TransactionsRepository {
     transactionDate: Date;
     createdBy: string;
   }) {
-    return this.prisma.$transaction(async (tx) => {
+    return this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       const expense = await tx.transaction.create({
         data: {
           type: "TRANSFER",

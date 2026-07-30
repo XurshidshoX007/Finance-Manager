@@ -1,5 +1,5 @@
 import "dotenv/config";
-import { Bot, GrammyError } from "grammy";
+import { Bot } from "grammy";
 import { Role } from "./shared/types/index.js";
 import express from "express";
 import cors from "cors";
@@ -33,12 +33,16 @@ import { CreditsService } from "./modules/credits/credits.service.js";
 import { CreditsHandler } from "./modules/credits/credits.handler.js";
 import { ReportsService } from "./modules/reports/reports.service.js";
 import { ReportsHandler } from "./modules/reports/reports.handler.js";
+import { PdfService } from "./modules/reports/pdf.service.js";
 import { ExcelService } from "./modules/excel/excel.service.js";
 import { SettingsRepository } from "./modules/settings/settings.repository.js";
 import { SettingsService } from "./modules/settings/settings.service.js";
 import { NotificationsRepository } from "./modules/notifications/notifications.repository.js";
 import { NotificationsService } from "./modules/notifications/notifications.service.js";
 import { NotificationWorker } from "./modules/notifications/notification.worker.js";
+import { BackupService } from "./modules/backup/backup.service.js";
+import { QueueService } from "./modules/queue/queue.service.js";
+import { SchedulerService } from "./scheduler/scheduler.service.js";
 import { createApiRoutes } from "./api/routes.js";
 import { errorHandler } from "./shared/middlewares/error-handler.js";
 import { requestLogger } from "./shared/middlewares/request-logger.js";
@@ -96,6 +100,9 @@ async function main(): Promise<void> {
   // Reports
   const reportsService = new ReportsService(transactionsRepository, creditsRepository, auditLogService);
 
+  // PDF
+  const pdfService = new PdfService(prisma, auditLogService);
+
   // Excel
   const excelService = new ExcelService(prisma, auditLogService);
 
@@ -106,6 +113,16 @@ async function main(): Promise<void> {
   // Notifications
   const notificationsRepository = new NotificationsRepository(prisma);
   const notificationsService = new NotificationsService(notificationsRepository);
+
+  // Backup
+  const backupService = new BackupService();
+
+  // Queue
+  const queueService = new QueueService(
+    config.REDIS_HOST,
+    config.REDIS_PORT,
+    config.REDIS_PASSWORD,
+  );
 
   // ============================================
   // TELEGRAM BOT
@@ -207,12 +224,18 @@ async function main(): Promise<void> {
     creditsService,
     reportsService,
     excelService,
+    pdfService,
     usersService,
     auditLogService,
     settingsService,
+    backupService,
+    queueService,
   });
 
   app.use("/api/v1", apiRoutes);
+
+  // Serve Mini App static files
+  app.use("/mini-app", express.static("mini-app/dist"));
 
   app.use(errorHandler);
 
@@ -253,10 +276,44 @@ async function main(): Promise<void> {
   });
 
   // ============================================
-  // NOTIFICATION WORKER
+  // BULLMQ WORKER
   // ============================================
 
-  const _notificationWorker = new NotificationWorker(bot, notificationsService, transactionsRepository);
+  const notificationWorker = new NotificationWorker(bot, notificationsService, transactionsRepository);
+
+  const worker = queueService.createWorker(async (job) => {
+    const data = job.data;
+    logger.info({ jobId: job.id, type: data.type }, "Processing job");
+
+    switch (data.type) {
+      case "daily_reminder": {
+        await notificationWorker.sendDailyReminderToUser(data.userId, BigInt(data.telegramId));
+        break;
+      }
+      case "credit_reminder": {
+        await bot.api.sendMessage(
+          data.telegramId,
+          `🏦 Kredit to'lovi eslatmasi\n\n` +
+          `Kredit: ${data.creditName}\n` +
+          `Miqdor: ${data.amount}\n` +
+          `Sana: ${new Date(data.paymentDate).toLocaleDateString("uz-UZ")}\n\n` +
+          `Iltimos, o'z vaqtida to'lovni amalga oshiring.`,
+        );
+        break;
+      }
+      case "backup": {
+        await backupService.createBackup();
+        break;
+      }
+    }
+  });
+
+  // ============================================
+  // SCHEDULER (CRON)
+  // ============================================
+
+  const scheduler = new SchedulerService(bot, backupService, queueService, prisma);
+  scheduler.start();
 
   // ============================================
   // GRACEFUL SHUTDOWN
@@ -267,7 +324,8 @@ async function main(): Promise<void> {
 
     server.close();
     bot.stop();
-
+    await worker.close();
+    await queueService.close();
     await disconnectPrisma();
     await disconnectRedis();
 

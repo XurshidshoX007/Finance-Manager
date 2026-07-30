@@ -1,22 +1,7 @@
 import type { AuditLogRepository } from "./audit-log.repository.js";
 import type { AuditLogEntry } from "../../shared/types/index.js";
-import type { PaginationInput, PaginatedResult } from "../../shared/types/index.js";
+import type { PaginationInput } from "../../shared/types/index.js";
 import { getLogger } from "../../shared/logger/index.js";
-
-interface AuditLogWithUser {
-  id: string;
-  userId: string;
-  action: string;
-  entity: string;
-  entityId: string | null;
-  details: unknown;
-  createdAt: Date;
-  user: {
-    firstName: string;
-    lastName: string | null;
-    username: string | null;
-  };
-}
 
 export class AuditLogService {
   private readonly auditLogRepo: AuditLogRepository;

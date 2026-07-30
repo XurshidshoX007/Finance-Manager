@@ -4,14 +4,12 @@ import type { AuditLogService } from "../users/audit-log.service.js";
 import type { ReportFilterInput, ReportResult, DashboardResult, KpiResult } from "./reports.types.js";
 import { ROLE_PERMISSIONS, Permission } from "../../shared/types/index.js";
 import { ForbiddenError } from "../../shared/errors/index.js";
-import { getLogger } from "../../shared/logger/index.js";
 import { startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfYear, endOfYear } from "../../shared/utils/index.js";
 
 export class ReportsService {
   private readonly transactionsRepo: TransactionsRepository;
   private readonly creditsRepo: CreditsRepository;
   private readonly auditLogService: AuditLogService;
-  private readonly logger = getLogger("reports-service");
 
   constructor(
     transactionsRepo: TransactionsRepository,

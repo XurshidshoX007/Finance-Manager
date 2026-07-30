@@ -1,17 +1,12 @@
 import type { PrismaClient } from "@prisma/client";
-import type { Logger } from "pino";
-import { getLogger } from "../../shared/logger/index.js";
 import type { PaginationInput } from "../../shared/types/index.js";
 import { calculateOffset, createPaginatedResult } from "../../shared/utils/index.js";
-import type { Role } from "../../shared/types/index.js";
 
 export class UsersRepository {
   private readonly prisma: PrismaClient;
-  private readonly logger: Logger;
 
   constructor(prisma: PrismaClient) {
     this.prisma = prisma;
-    this.logger = getLogger("users-repository");
   }
 
   async findAll(pagination: PaginationInput, filters?: { role?: string; isActive?: boolean; isBlocked?: boolean }) {

@@ -26,10 +26,6 @@ export class NotificationWorker {
     this.logger.info("Sending daily reminders...");
 
     try {
-      const now = new Date();
-      const todayStart = startOfDay(now);
-      const todayEnd = endOfDay(now);
-
       this.logger.info("Daily reminder job executed");
     } catch (error) {
       this.logger.error({ error }, "Failed to send daily reminders");

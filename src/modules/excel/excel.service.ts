@@ -1,25 +1,9 @@
 import ExcelJS from "exceljs";
 import type { PrismaClient } from "@prisma/client";
-import type { Logger } from "pino";
 import { getLogger } from "../../shared/logger/index.js";
 import type { AuditLogService } from "../users/audit-log.service.js";
-import type { PaginationInput } from "../../shared/types/index.js";
 import { ROLE_PERMISSIONS, Permission } from "../../shared/types/index.js";
 import { ForbiddenError, ValidationError } from "../../shared/errors/index.js";
-import { createPaginationInput } from "../../shared/utils/index.js";
-
-interface ExportTransactionRow {
-  id: string;
-  type: string;
-  amount: string;
-  currency: string;
-  description: string | null;
-  category: string | null;
-  source: string | null;
-  transactionDate: Date;
-  isCancelled: boolean;
-  createdAt: Date;
-}
 
 interface ImportRow {
   rowNumber: number;
@@ -235,7 +219,7 @@ export class ExcelService {
     return Buffer.from(buffer as unknown as ArrayBuffer);
   }
 
-  async importPreview(userId: string, userRole: string, buffer: Buffer): Promise<ImportPreview> {
+  async importPreview(_userId: string, userRole: string, buffer: Buffer): Promise<ImportPreview> {
     this.requirePermission(userRole, Permission.EXCEL_IMPORT);
 
     const workbook = new ExcelJS.Workbook();
