@@ -69,7 +69,12 @@ export function createApiRoutes(services: ApiServices): Router {
     try {
       const userId = req.headers["x-user-id"] as string;
       const userRole = req.headers["x-user-role"] as string;
-      const result = await services.sourcesService.getById(req.params.id!, userId, userRole);
+      const { id } = req.params;
+      if (!id) {
+        res.status(400).json({ success: false, error: { message: "ID is required" } });
+        return;
+      }
+      const result = await services.sourcesService.getById(id, userId, userRole);
       res.json({ success: true, data: result });
     } catch (error) { next(error); }
   });
@@ -87,7 +92,12 @@ export function createApiRoutes(services: ApiServices): Router {
     try {
       const userId = req.headers["x-user-id"] as string;
       const userRole = req.headers["x-user-role"] as string;
-      const result = await services.sourcesService.update(userId, userRole, req.params.id!, req.body);
+      const { id } = req.params;
+      if (!id) {
+        res.status(400).json({ success: false, error: { message: "ID is required" } });
+        return;
+      }
+      const result = await services.sourcesService.update(userId, userRole, id, req.body);
       res.json({ success: true, data: result });
     } catch (error) { next(error); }
   });
@@ -96,7 +106,12 @@ export function createApiRoutes(services: ApiServices): Router {
     try {
       const userId = req.headers["x-user-id"] as string;
       const userRole = req.headers["x-user-role"] as string;
-      await services.sourcesService.archive(userId, userRole, req.params.id!);
+      const { id } = req.params;
+      if (!id) {
+        res.status(400).json({ success: false, error: { message: "ID is required" } });
+        return;
+      }
+      await services.sourcesService.archive(userId, userRole, id);
       res.json({ success: true, message: "Source archived" });
     } catch (error) { next(error); }
   });
@@ -137,7 +152,12 @@ export function createApiRoutes(services: ApiServices): Router {
     try {
       const userId = req.headers["x-user-id"] as string;
       const userRole = req.headers["x-user-role"] as string;
-      const result = await services.categoriesService.update(userId, userRole, req.params.id!, req.body);
+      const { id } = req.params;
+      if (!id) {
+        res.status(400).json({ success: false, error: { message: "ID is required" } });
+        return;
+      }
+      const result = await services.categoriesService.update(userId, userRole, id, req.body);
       res.json({ success: true, data: result });
     } catch (error) { next(error); }
   });
@@ -146,7 +166,12 @@ export function createApiRoutes(services: ApiServices): Router {
     try {
       const userId = req.headers["x-user-id"] as string;
       const userRole = req.headers["x-user-role"] as string;
-      await services.categoriesService.archive(userId, userRole, req.params.id!);
+      const { id } = req.params;
+      if (!id) {
+        res.status(400).json({ success: false, error: { message: "ID is required" } });
+        return;
+      }
+      await services.categoriesService.archive(userId, userRole, id);
       res.json({ success: true, message: "Category archived" });
     } catch (error) { next(error); }
   });
@@ -181,7 +206,12 @@ export function createApiRoutes(services: ApiServices): Router {
     try {
       const userId = req.headers["x-user-id"] as string;
       const userRole = req.headers["x-user-role"] as string;
-      const result = await services.transactionsService.getById(req.params.id!, userId, userRole);
+      const { id } = req.params;
+      if (!id) {
+        res.status(400).json({ success: false, error: { message: "ID is required" } });
+        return;
+      }
+      const result = await services.transactionsService.getById(id, userId, userRole);
       res.json({ success: true, data: result });
     } catch (error) { next(error); }
   });
@@ -208,7 +238,12 @@ export function createApiRoutes(services: ApiServices): Router {
     try {
       const userId = req.headers["x-user-id"] as string;
       const userRole = req.headers["x-user-role"] as string;
-      await services.transactionsService.cancel(userId, userRole, req.params.id!, req.body);
+      const { id } = req.params;
+      if (!id) {
+        res.status(400).json({ success: false, error: { message: "ID is required" } });
+        return;
+      }
+      await services.transactionsService.cancel(userId, userRole, id, req.body);
       res.json({ success: true, message: "Transaction cancelled" });
     } catch (error) { next(error); }
   });
@@ -263,7 +298,12 @@ export function createApiRoutes(services: ApiServices): Router {
     try {
       const userId = req.headers["x-user-id"] as string;
       const userRole = req.headers["x-user-role"] as string;
-      await services.creditsService.earlyPayment(userId, userRole, req.params.id!, req.body);
+      const { id } = req.params;
+      if (!id) {
+        res.status(400).json({ success: false, error: { message: "ID is required" } });
+        return;
+      }
+      await services.creditsService.earlyPayment(userId, userRole, id, req.body);
       res.json({ success: true, message: "Early payment processed" });
     } catch (error) { next(error); }
   });
@@ -396,7 +436,12 @@ export function createApiRoutes(services: ApiServices): Router {
   usersRouter.put("/:id/role", async (req, res, next) => {
     try {
       const userId = req.headers["x-user-id"] as string;
-      await services.usersService.changeRole(userId, req.params.id!, req.body.role);
+      const { id } = req.params;
+      if (!id) {
+        res.status(400).json({ success: false, error: { message: "ID is required" } });
+        return;
+      }
+      await services.usersService.changeRole(userId, id, req.body.role);
       res.json({ success: true, message: "Role updated" });
     } catch (error) { next(error); }
   });

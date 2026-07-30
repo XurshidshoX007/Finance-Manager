@@ -75,7 +75,8 @@ export class PdfService {
       doc.moveDown(0.5);
 
       for (let i = 0; i < Math.min(report.topCategories.length, 10); i++) {
-        const cat = report.topCategories[i]!;
+        const cat = report.topCategories[i];
+        if (!cat) continue;
         const barWidth = Math.max(10, (cat.percentage / 100) * 400);
 
         doc.fontSize(10).fillColor("#333333").text(`${cat.emoji} ${cat.name}`, 50, doc.y, { continued: true });
@@ -93,7 +94,8 @@ export class PdfService {
       doc.moveDown(0.5);
 
       for (let i = 0; i < Math.min(report.topSources.length, 10); i++) {
-        const src = report.topSources[i]!;
+        const src = report.topSources[i];
+        if (!src) continue;
         const barWidth = Math.max(10, (src.percentage / 100) * 400);
 
         doc.fontSize(10).fillColor("#333333").text(`${src.emoji} ${src.name}`, 50, doc.y, { continued: true });
@@ -152,13 +154,18 @@ export class PdfService {
     let x = 50;
     doc.rect(50, tableTop, 750, 25).fillColor("#1a237e").fill();
     for (let i = 0; i < headers.length; i++) {
-      doc.fontSize(9).fillColor("#ffffff").text(headers[i]!, x + 5, tableTop + 7, { width: colWidths[i]! });
-      x += colWidths[i]!;
+      const header = headers[i];
+      const colWidth = colWidths[i];
+      if (header !== undefined && colWidth !== undefined) {
+        doc.fontSize(9).fillColor("#ffffff").text(header, x + 5, tableTop + 7, { width: colWidth });
+        x += colWidth;
+      }
     }
 
     let rowY = tableTop + 30;
     for (let i = 0; i < Math.min(transactions.length, 50); i++) {
-      const tx = transactions[i]!;
+      const tx = transactions[i];
+      if (!tx) continue;
       if (rowY > 550) {
         doc.addPage();
         rowY = 50;
@@ -180,8 +187,12 @@ export class PdfService {
       ];
 
       for (let j = 0; j < rowData.length; j++) {
-        doc.fontSize(8).fillColor(tx.isCancelled ? "#999999" : "#333333").text(rowData[j]!, x + 5, rowY, { width: colWidths[j]! });
-        x += colWidths[j]!;
+        const cellData = rowData[j];
+        const colWidth = colWidths[j];
+        if (cellData !== undefined && colWidth !== undefined) {
+          doc.fontSize(8).fillColor(tx.isCancelled ? "#999999" : "#333333").text(cellData, x + 5, rowY, { width: colWidth });
+          x += colWidth;
+        }
       }
 
       rowY += 22;

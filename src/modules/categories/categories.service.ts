@@ -2,7 +2,7 @@ import type { CategoriesRepository } from "./categories.repository.js";
 import type { AuditLogService } from "../users/audit-log.service.js";
 import type { CreateCategoryInput, UpdateCategoryInput, CategoryFilterInput, CreateCategoryGroupInput } from "./categories.types.js";
 import type { PaginationInput, PaginatedResult } from "../../shared/types/index.js";
-import { ROLE_PERMISSIONS, Permission } from "../../shared/types/index.js";
+import { ROLE_PERMISSIONS, type Permission } from "../../shared/types/index.js";
 import { ForbiddenError, NotFoundError, ConflictError } from "../../shared/errors/index.js";
 import { getLogger } from "../../shared/logger/index.js";
 

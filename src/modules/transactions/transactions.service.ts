@@ -2,7 +2,7 @@ import type { TransactionsRepository } from "./transactions.repository.js";
 import type { AuditLogService } from "../users/audit-log.service.js";
 import type { CreateTransactionInput, CreateTransferInput, CancelTransactionInput, TransactionFilterInput, TransactionSortInput } from "./transactions.types.js";
 import type { PaginationInput, PaginatedResult } from "../../shared/types/index.js";
-import { ROLE_PERMISSIONS, Permission } from "../../shared/types/index.js";
+import { ROLE_PERMISSIONS, type Permission } from "../../shared/types/index.js";
 import { ForbiddenError, NotFoundError, ValidationError, ConflictError } from "../../shared/errors/index.js";
 import { getLogger } from "../../shared/logger/index.js";
 import { toDecimal } from "../../shared/utils/index.js";

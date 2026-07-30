@@ -1,4 +1,4 @@
-import Decimal from "decimal.js";
+import { Decimal } from "decimal.js";
 
 Decimal.set({ precision: 20, rounding: Decimal.ROUND_HALF_UP });
 
@@ -132,7 +132,7 @@ export function calculateDifferentialSchedule(
   }
 
   return {
-    monthlyPayment: schedule.length > 0 ? schedule[0]!.totalPayment : "0.00",
+    monthlyPayment: schedule[0]?.totalPayment ?? "0.00",
     totalInterest: totalInterest.toFixed(2),
     totalPayment: totalPayment.toFixed(2),
     schedule,
