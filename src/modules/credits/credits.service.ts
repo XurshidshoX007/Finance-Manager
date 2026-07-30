@@ -87,7 +87,7 @@ export class CreditsService {
 
     await this.auditLogService.logCreate(userId, "CREDIT", credit.id, {
       name: credit.name,
-      totalAmount: credit.totalAmount,
+      totalAmount: credit.totalAmount.toString(),
       type: credit.type,
     });
 
