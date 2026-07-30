@@ -1,0 +1,382 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// BASE MODEL FIELDS (applied via mixin pattern)
+// Every table has: id (CUID), createdAt, updatedAt, archivedAt, isArchived
+// ============================================
+
+enum Role {
+  ADMIN
+  MANAGER
+  EMPLOYEE
+}
+
+enum Currency {
+  UZS
+  USD
+  EUR
+  RUB
+  GBP
+  CNY
+}
+
+enum TransactionType {
+  INCOME
+  EXPENSE
+  TRANSFER
+}
+
+enum CreditType {
+  ANNUITY
+  DIFFERENTIAL
+}
+
+enum CreditStatus {
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+enum NotificationType {
+  DAILY_REMINDER
+  CREDIT_REMINDER
+  BACKUP_REMINDER
+}
+
+enum ImportSource {
+  MANUAL
+  TBC
+  PAYME
+  ANOR
+  XAZNA
+  CUSTOM
+}
+
+// ============================================
+// USERS
+// ============================================
+
+model User {
+  id            String   @id @default(cuid())
+  telegramId    BigInt   @unique
+  firstName     String
+  lastName      String?
+  username      String?
+  languageCode  String?  @default("uz")
+  role          Role     @default(EMPLOYEE)
+  isActive      Boolean  @default(true)
+  isBlocked     Boolean  @default(false)
+  lastLoginAt   DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  archivedAt    DateTime?
+  isArchived    Boolean  @default(false)
+
+  // Relations
+  sources       Source[]
+  categories    Category[]
+  transactions  Transaction[]
+  credits       Credit[]
+  auditLogs     AuditLog[]
+  notifications Notification[]
+  settings      UserSetting[]
+  importProfiles ImportProfile[]
+
+  @@index([telegramId])
+  @@index([role])
+  @@index([isActive])
+  @@map("users")
+}
+
+// ============================================
+// SOURCES (Mablag' manbalari)
+// ============================================
+
+model Source {
+  id          String   @id @default(cuid())
+  name        String
+  emoji       String   @default("💰")
+  color       String   @default("#4CAF50")
+  currency    Currency @default(UZS)
+  description String?
+  isSystem    Boolean  @default(false)
+  createdBy   String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  archivedAt  DateTime?
+  isArchived  Boolean  @default(false)
+
+  // Relations
+  user          User          @relation(fields: [createdBy], references: [id])
+  fromTransfers Transaction[] @relation("SourceFromTransfers")
+  toTransfers   Transaction[] @relation("SourceToTransfers")
+  transactions  Transaction[] @relation("SourceTransactions")
+  credits       Credit[]
+
+  @@unique([createdBy, name, isArchived])
+  @@index([createdBy])
+  @@index([currency])
+  @@map("sources")
+}
+
+// ============================================
+// CATEGORIES (Kirim/Chiqim turlari)
+// ============================================
+
+model CategoryGroup {
+  id          String    @id @default(cuid())
+  name        String
+  emoji       String    @default("📁")
+  color       String    @default("#2196F3")
+  createdBy   String
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  archivedAt  DateTime?
+  isArchived  Boolean   @default(false)
+
+  categories Category[]
+
+  @@index([createdBy])
+  @@map("category_groups")
+}
+
+model Category {
+  id          String        @id @default(cuid())
+  name        String
+  emoji       String        @default("📝")
+  color       String        @default("#FF9800")
+  type        TransactionType
+  description String?
+  groupId     String?
+  createdBy   String
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  archivedAt  DateTime?
+  isArchived  Boolean       @default(false)
+
+  // Relations
+  user         User          @relation(fields: [createdBy], references: [id])
+  group        CategoryGroup? @relation(fields: [groupId], references: [id])
+  transactions Transaction[]
+
+  @@unique([createdBy, name, type, isArchived])
+  @@index([createdBy])
+  @@index([type])
+  @@map("categories")
+}
+
+// ============================================
+// TRANSACTIONS (Immutable Ledger)
+// ============================================
+
+model Transaction {
+  id              String         @id @default(cuid())
+  type            TransactionType
+  amount          Decimal        @db.Decimal(18, 2)
+  currency        Currency       @default(UZS)
+  description     String?
+  referenceId     String?        @unique
+  categoryId      String?
+  sourceId        String?
+  transferSourceId String?
+  transferTargetId String?
+  createdBy       String
+  isCancelled     Boolean        @default(false)
+  cancelledAt     DateTime?
+  cancelledBy     String?
+  cancelReason    String?
+  transactionDate DateTime
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  archivedAt      DateTime?
+  isArchived      Boolean        @default(false)
+
+  // Relations
+  user           User          @relation(fields: [createdBy], references: [id])
+  category       Category?     @relation(fields: [categoryId], references: [id])
+  source         Source?       @relation("SourceTransactions", fields: [sourceId], references: [id])
+  transferSource Source?       @relation("SourceFromTransfers", fields: [transferSourceId], references: [id])
+  transferTarget Source?       @relation("SourceToTransfers", fields: [transferTargetId], references: [id])
+  cancelledByUser User?        @relation("CancelledByUser", fields: [cancelledBy], references: [id])
+
+  @@index([createdBy])
+  @@index([type])
+  @@index([currency])
+  @@index([transactionDate])
+  @@index([sourceId])
+  @@index([categoryId])
+  @@index([isCancelled])
+  @@map("transactions")
+}
+
+// ============================================
+// CREDITS (Kreditlar)
+// ============================================
+
+model Credit {
+  id               String       @id @default(cuid())
+  name             String
+  totalAmount      Decimal      @db.Decimal(18, 2)
+  currency         Currency     @default(UZS)
+  remainingDebt    Decimal      @db.Decimal(18, 2)
+  monthlyPayment   Decimal      @db.Decimal(18, 2)
+  interestRate     Decimal      @db.Decimal(5, 2)
+  termMonths       Int
+  paidMonths       Int          @default(0)
+  type             CreditType
+  status           CreditStatus @default(ACTIVE)
+  startDate        DateTime
+  endDate          DateTime
+  sourceId         String?
+  createdBy        String
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+  archivedAt       DateTime?
+  isArchived       Boolean      @default(false)
+
+  // Relations
+  user          User              @relation(fields: [createdBy], references: [id])
+  source        Source?           @relation(fields: [sourceId], references: [id])
+  schedule      CreditSchedule[]
+  earlyPayments CreditEarlyPayment[]
+
+  @@index([createdBy])
+  @@index([status])
+  @@index([startDate])
+  @@map("credits")
+}
+
+model CreditSchedule {
+  id              String   @id @default(cuid())
+  creditId        String
+  monthNumber     Int
+  paymentDate     DateTime
+  principalAmount Decimal  @db.Decimal(18, 2)
+  interestAmount  Decimal  @db.Decimal(18, 2)
+  totalPayment    Decimal  @db.Decimal(18, 2)
+  remainingDebt   Decimal  @db.Decimal(18, 2)
+  isPaid          Boolean  @default(false)
+  paidAt          DateTime?
+  transactionId   String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  credit     Credit      @relation(fields: [creditId], references: [id], onDelete: Cascade)
+  transaction Transaction? @relation(fields: [transactionId], references: [id])
+
+  @@index([creditId])
+  @@index([paymentDate])
+  @@index([isPaid])
+  @@map("credit_schedules")
+}
+
+model CreditEarlyPayment {
+  id          String   @id @default(cuid())
+  creditId    String
+  amount      Decimal  @db.Decimal(18, 2)
+  paymentDate DateTime
+  isFull      Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  credit Credit @relation(fields: [creditId], references: [id], onDelete: Cascade)
+
+  @@index([creditId])
+  @@map("credit_early_payments")
+}
+
+// ============================================
+// AUDIT LOG
+// ============================================
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String
+  action     String
+  entity     String
+  entityId   String?
+  details    Json?
+  ipAddress  String?
+  createdAt  DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([entity])
+  @@index([action])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+// ============================================
+// NOTIFICATIONS
+// ============================================
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  type      NotificationType
+  title     String
+  message   String
+  isRead    Boolean          @default(false)
+  isSent    Boolean          @default(false)
+  sentAt    DateTime?
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([type])
+  @@index([isRead])
+  @@index([isSent])
+  @@map("notifications")
+}
+
+// ============================================
+// USER SETTINGS
+// ============================================
+
+model UserSetting {
+  id           String   @id @default(cuid())
+  userId       String
+  key          String
+  value        String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@unique([userId, key])
+  @@map("user_settings")
+}
+
+// ============================================
+// IMPORT PROFILES
+// ============================================
+
+model ImportProfile {
+  id          String      @id @default(cuid())
+  name        String
+  source      ImportSource
+  columnMapping Json
+  userId      String
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  archivedAt  DateTime?
+  isArchived  Boolean     @default(false)
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([source])
+  @@map("import_profiles")
+}
