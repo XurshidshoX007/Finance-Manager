@@ -1,0 +1,63 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: finance-manager-db
+    environment:
+      POSTGRES_USER: finance
+      POSTGRES_PASSWORD: finance123
+      POSTGRES_DB: finance_manager
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U finance -d finance_manager"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: finance-manager-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    container_name: finance-manager-app
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: production
+      APP_PORT: 3000
+      BOT_TOKEN: ${BOT_TOKEN}
+      BOT_WEBHOOK_URL: ${BOT_WEBHOOK_URL:-}
+      BOT_WEBHOOK_PATH: /webhook
+      BOT_SECRET_TOKEN: ${BOT_SECRET_TOKEN:-}
+      DATABASE_URL: postgresql://finance:finance123@postgres:5432/finance_manager?schema=public
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      ADMIN_TELEGRAM_IDS: ${ADMIN_TELEGRAM_IDS:-}
+      JWT_SECRET: ${JWT_SECRET:-change-me-in-production}
+      LOG_LEVEL: info
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:
