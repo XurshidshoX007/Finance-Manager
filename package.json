@@ -1,6 +1,7 @@
 {
   "name": "finance-manager",
   "version": "1.0.0",
+  "type": "module",
   "description": "Production-grade Finance Manager for Telegram",
   "main": "dist/index.js",
   "scripts": {

@@ -87,7 +87,7 @@ export class SchedulerService {
           try {
             await this.queueService.addCreditReminder(
               payment.creditId,
-              payment.credit.userId,
+              payment.credit.createdBy,
               payment.credit.user.telegramId.toString(),
               payment.credit.name,
               String(payment.totalPayment),

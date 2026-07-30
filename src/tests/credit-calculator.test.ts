@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import Decimal from "decimal.js";
+import { Decimal } from "decimal.js";
 
 // Inline implementations to avoid module resolution issues
 Decimal.set({ precision: 20, rounding: Decimal.ROUND_HALF_UP });
@@ -129,7 +129,7 @@ function calculateDifferentialSchedule(
   }
 
   return {
-    monthlyPayment: schedule.length > 0 ? schedule[0]!.totalPayment : "0.00",
+    monthlyPayment: schedule[0]?.totalPayment ?? "0.00",
     totalInterest: totalInterest.toFixed(2),
     totalPayment: totalPayment.toFixed(2),
     schedule,
@@ -157,7 +157,8 @@ describe("Credit Calculator", () => {
     it("should have zero remaining debt at the end", () => {
       const result = calculateAnnuitySchedule("12000000", "12", 12, baseDate);
       const lastEntry = result.schedule[result.schedule.length - 1];
-      expect(Number(lastEntry!.remainingDebt)).toBeLessThanOrEqual(0.01);
+      expect(lastEntry).toBeDefined();
+      expect(Number(lastEntry?.remainingDebt)).toBeLessThanOrEqual(0.01);
     });
 
     it("should calculate total interest correctly", () => {
@@ -190,8 +191,12 @@ describe("Credit Calculator", () => {
     it("should have decreasing total payments", () => {
       const result = calculateDifferentialSchedule("12000000", "12", 12, baseDate);
       for (let i = 1; i < result.schedule.length; i++) {
-        expect(Number(result.schedule[i]!.totalPayment)).toBeLessThanOrEqual(
-          Number(result.schedule[i - 1]!.totalPayment),
+        const current = result.schedule[i];
+        const prev = result.schedule[i - 1];
+        expect(current).toBeDefined();
+        expect(prev).toBeDefined();
+        expect(Number(current?.totalPayment)).toBeLessThanOrEqual(
+          Number(prev?.totalPayment),
         );
       }
     });
@@ -200,15 +205,17 @@ describe("Credit Calculator", () => {
       const result = calculateDifferentialSchedule("12000000", "12", 12, baseDate);
       const principals = result.schedule.map((s) => Number(s.principalAmount));
       const first = principals[0];
+      expect(first).toBeDefined();
       for (const p of principals) {
-        expect(Math.abs(p - first!)).toBeLessThan(0.02);
+        expect(Math.abs(p - (first ?? 0))).toBeLessThan(0.02);
       }
     });
 
     it("should have zero remaining debt at the end", () => {
       const result = calculateDifferentialSchedule("12000000", "12", 12, baseDate);
       const lastEntry = result.schedule[result.schedule.length - 1];
-      expect(Number(lastEntry!.remainingDebt)).toBeLessThanOrEqual(0.01);
+      expect(lastEntry).toBeDefined();
+      expect(Number(lastEntry?.remainingDebt)).toBeLessThanOrEqual(0.01);
     });
   });
 });

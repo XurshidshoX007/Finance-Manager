@@ -187,12 +187,14 @@ export interface BalanceResult {
 // AUDIT LOG TYPES
 // ============================================
 
+export type InputJsonValue = string | number | boolean | { [key: string]: InputJsonValue | undefined } | InputJsonValue[] | null;
+
 export interface AuditLogEntry {
   userId: string;
   action: string;
   entity: string;
   entityId?: string;
-  details?: Record<string, unknown>;
+  details?: InputJsonValue;
 }
 
 // ============================================

@@ -1,6 +1,19 @@
 import { PrismaClient } from "@prisma/client";
 import { getLogger } from "../logger/index.js";
 
+// Define Prisma event types locally since they might not be re-exported
+interface PrismaQueryEvent {
+  query: string;
+  params: string;
+  duration: number;
+  target: string;
+}
+
+interface PrismaLogEvent {
+  message: string;
+  target: string;
+}
+
 let prisma: PrismaClient | null = null;
 
 export function createPrismaClient(): PrismaClient {
@@ -10,7 +23,7 @@ export function createPrismaClient(): PrismaClient {
 
   const logger = getLogger("database");
 
-  prisma = new PrismaClient({
+  const prismaInstance = new PrismaClient({
     log: [
       {
         emit: "event",
@@ -27,8 +40,13 @@ export function createPrismaClient(): PrismaClient {
     ],
   });
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  prisma.$on("query", (e: any) => {
+  const prismaWithEvents = prismaInstance as unknown as {
+    $on(event: "query", cb: (e: PrismaQueryEvent) => void): void;
+    $on(event: "error", cb: (e: PrismaLogEvent) => void): void;
+    $on(event: "warn", cb: (e: PrismaLogEvent) => void): void;
+  };
+
+  prismaWithEvents.$on("query", (e: PrismaQueryEvent) => {
     logger.debug(
       {
         query: e.query,
@@ -39,15 +57,15 @@ export function createPrismaClient(): PrismaClient {
     );
   });
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  prisma.$on("error", (e: any) => {
-    logger.error({ error: e }, "Prisma error");
+  prismaWithEvents.$on("error", (e: PrismaLogEvent) => {
+    logger.error({ error: e.message, target: e.target }, "Prisma error");
   });
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  prisma.$on("warn", (e: any) => {
-    logger.warn({ warning: e }, "Prisma warning");
+  prismaWithEvents.$on("warn", (e: PrismaLogEvent) => {
+    logger.warn({ warning: e.message, target: e.target }, "Prisma warning");
   });
+
+  prisma = prismaInstance;
 
   return prisma;
 }

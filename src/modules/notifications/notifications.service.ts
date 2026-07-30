@@ -42,8 +42,8 @@ export class NotificationsService {
   }
 
   async getUnread(userId: string): Promise<NotificationItem[]> {
-    const notifications = await this.notificationsRepo.findUnreadByUser(userId);
-    return notifications.map((n: { id: string; type: string; title: string; message: string; isRead: boolean; isSent: boolean; createdAt: Date }) => ({
+    const notifications = (await this.notificationsRepo.findUnreadByUser(userId)) as NotificationItem[];
+    return notifications.map((n) => ({
       id: n.id,
       type: n.type,
       title: n.title,
@@ -55,8 +55,8 @@ export class NotificationsService {
   }
 
   async getAll(userId: string, limit?: number): Promise<NotificationItem[]> {
-    const notifications = await this.notificationsRepo.findByUser(userId, limit);
-    return notifications.map((n: { id: string; type: string; title: string; message: string; isRead: boolean; isSent: boolean; createdAt: Date }) => ({
+    const notifications = (await this.notificationsRepo.findByUser(userId, limit)) as NotificationItem[];
+    return notifications.map((n) => ({
       id: n.id,
       type: n.type,
       title: n.title,
@@ -66,6 +66,7 @@ export class NotificationsService {
       createdAt: n.createdAt,
     }));
   }
+
 
   async markAsRead(id: string): Promise<void> {
     await this.notificationsRepo.markAsRead(id);
@@ -93,12 +94,23 @@ export class NotificationsService {
   }>> {
     const schedules = await this.notificationsRepo.findPendingCreditReminders();
 
-    return schedules.map((s: { id: string; paymentDate: Date; totalPayment: unknown; credit: { name: string; userId: string; user: { telegramId: bigint } } }) => ({
+    return (schedules as Array<{
+      id: string;
+      paymentDate: Date;
+      totalPayment: unknown;
+      credit: {
+        name: string;
+        createdBy: string;
+        user: {
+          telegramId: bigint;
+        };
+      };
+    }>).map((s) => ({
       scheduleId: s.id,
       creditName: s.credit.name,
       paymentDate: s.paymentDate,
       totalPayment: String(s.totalPayment),
-      userId: s.credit.userId,
+      userId: s.credit.createdBy,
       telegramId: s.credit.user.telegramId,
     }));
   }
