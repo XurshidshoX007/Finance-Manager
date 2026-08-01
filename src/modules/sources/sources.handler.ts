@@ -1,11 +1,11 @@
-import type { Bot } from "grammy";
+import type { Bot, NextFunction } from "grammy";
 import type { CustomContext } from "../auth/auth.middleware.js";
 import type { SourcesService } from "./sources.service.js";
 import { createSourceSchema } from "./sources.types.js";
 import { createPaginationInput } from "../../shared/utils/index.js";
 import { formatMoney } from "../../shared/utils/index.js";
-
-const userSessions = new Map<string, { creatingSource: boolean }>();
+import { flowStore } from "../../shared/utils/flow-store.js";
+import { MAIN_MENU_BUTTONS, isMainMenuButton } from "../../shared/utils/reply-keyboard.js";
 
 export class SourcesHandler {
   private readonly bot: Bot<CustomContext>;
@@ -18,11 +18,17 @@ export class SourcesHandler {
 
   register(): void {
     this.bot.command("sources", this.handleList.bind(this));
+    this.bot.hears(MAIN_MENU_BUTTONS.sources, this.handleSourcesNav.bind(this));
     this.bot.callbackQuery("sources:list", this.handleListCallback.bind(this));
     this.bot.callbackQuery(/^source:view:/, this.handleView.bind(this));
     this.bot.callbackQuery(/^source:archive:/, this.handleArchive.bind(this));
     this.bot.callbackQuery("source:create:start", this.handleCreateStart.bind(this));
     this.bot.on("message", this.handleCreateInput.bind(this));
+  }
+
+  private async handleSourcesNav(ctx: CustomContext): Promise<void> {
+    flowStore.delete(ctx.appState.userId);
+    await this.handleList(ctx);
   }
 
   private async handleList(ctx: CustomContext): Promise<void> {
@@ -45,7 +51,7 @@ export class SourcesHandler {
     if (result.data.length === 0) {
       await ctx.reply(
         "💰 Mablag' manbalari ro'yxati bo'sh.\n\n" +
-        "Yangi manba qo'shish uchun quyidagi tugmani bosing:",
+          "Yangi manba qo'shish uchun quyidagi tugmani bosing:",
         {
           reply_markup: {
             inline_keyboard: [
@@ -92,7 +98,11 @@ export class SourcesHandler {
       return;
     }
 
-    const source = await this.sourcesService.getById(id, ctx.appState.userId, ctx.appState.userRole);
+    const source = await this.sourcesService.getById(
+      id,
+      ctx.appState.userId,
+      ctx.appState.userRole,
+    );
 
     const text =
       `${source.emoji} ${source.name}\n\n` +
@@ -131,23 +141,36 @@ export class SourcesHandler {
   private async handleCreateStart(ctx: CustomContext): Promise<void> {
     await ctx.reply(
       "➕ Yangi manba qo'shish\n\n" +
-      "Manba nomini yuboring:\n" +
-      "Masalan: Naqd pul\n\n" +
-      "Bekor qilish uchun /cancel buyrug'ini yuboring",
+        "Manba nomini yuboring:\n" +
+        "Masalan: Naqd pul\n\n" +
+        "Bekor qilish uchun /cancel buyrug'ini yuboring",
     );
-    userSessions.set(ctx.appState.userId, { creatingSource: true });
+    flowStore.set(ctx.appState.userId, { kind: "source", creatingSource: true });
   }
 
-  private async handleCreateInput(ctx: CustomContext): Promise<void> {
-    const session = userSessions.get(ctx.appState.userId);
-    if (!session?.creatingSource) return;
+  private async handleCreateInput(ctx: CustomContext, next: NextFunction): Promise<void> {
+    const flow = flowStore.get(ctx.appState.userId);
+    if (!flow || flow.kind !== "source") {
+      await next();
+      return;
+    }
 
     const text = ctx.message?.text;
-    if (!text) return;
+    if (!text) {
+      await next();
+      return;
+    }
 
     if (text === "/cancel") {
-      userSessions.delete(ctx.appState.userId);
+      flowStore.delete(ctx.appState.userId);
       await ctx.reply("❌ Manba yaratish bekor qilindi.");
+      return;
+    }
+
+    if (isMainMenuButton(text)) {
+      flowStore.delete(ctx.appState.userId);
+      await ctx.reply("❌ Manba yaratish bekor qilindi.");
+      await next();
       return;
     }
 
@@ -171,11 +194,11 @@ export class SourcesHandler {
         ctx.appState.userRole,
         validation.data,
       );
-      userSessions.delete(ctx.appState.userId);
+      flowStore.delete(ctx.appState.userId);
       await ctx.reply(
         `✅ Manba muvaffaqiyatli yaratildi!\n\n` +
-        `${source.emoji} ${source.name}\n` +
-        `Valyuta: ${source.currency}`,
+          `${source.emoji} ${source.name}\n` +
+          `Valyuta: ${source.currency}`,
       );
     } catch (error) {
       const message = error instanceof Error ? error.message : "Xatolik yuz berdi";

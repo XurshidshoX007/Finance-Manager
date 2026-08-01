@@ -3,6 +3,8 @@ import type { CustomContext } from "../auth/auth.middleware.js";
 import type { UsersService } from "./users.service.js";
 import { Role } from "../../shared/types/index.js";
 import { createPaginationInput } from "../../shared/utils/index.js";
+import { MAIN_MENU_BUTTONS } from "../../shared/utils/reply-keyboard.js";
+import { flowStore } from "../../shared/utils/flow-store.js";
 
 export class UsersHandler {
   private readonly bot: Bot<CustomContext>;
@@ -15,7 +17,13 @@ export class UsersHandler {
 
   register(): void {
     this.bot.command("users", this.handleUsersList.bind(this));
+    this.bot.hears(MAIN_MENU_BUTTONS.users, this.handleUsersNav.bind(this));
     this.bot.callbackQuery(/^user:/, this.handleUserAction.bind(this));
+  }
+
+  private async handleUsersNav(ctx: CustomContext): Promise<void> {
+    flowStore.delete(ctx.appState.userId);
+    await this.handleUsersList(ctx);
   }
 
   private async handleUsersList(ctx: CustomContext): Promise<void> {

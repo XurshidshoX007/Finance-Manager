@@ -98,7 +98,11 @@ async function main(): Promise<void> {
   const creditsService = new CreditsService(creditsRepository, auditLogService);
 
   // Reports
-  const reportsService = new ReportsService(transactionsRepository, creditsRepository, auditLogService);
+  const reportsService = new ReportsService(
+    transactionsRepository,
+    creditsRepository,
+    auditLogService,
+  );
 
   // PDF
   const pdfService = new PdfService(prisma, auditLogService);
@@ -148,7 +152,7 @@ async function main(): Promise<void> {
   });
 
   // Register handlers
-  const authHandler = new AuthHandler(bot, authService);
+  const authHandler = new AuthHandler(bot, authService, settingsService);
   authHandler.register();
 
   const usersHandler = new UsersHandler(bot, usersService);
@@ -160,7 +164,12 @@ async function main(): Promise<void> {
   const categoriesHandler = new CategoriesHandler(bot, categoriesService);
   categoriesHandler.register();
 
-  const transactionsHandler = new TransactionsHandler(bot, transactionsService);
+  const transactionsHandler = new TransactionsHandler(
+    bot,
+    transactionsService,
+    categoriesService,
+    sourcesService,
+  );
   transactionsHandler.register();
 
   const creditsHandler = new CreditsHandler(bot, creditsService);
@@ -175,7 +184,7 @@ async function main(): Promise<void> {
     const firstName = ctx.from?.first_name ?? "Foydalanuvchi";
     await ctx.editMessageText(
       `📊 Finance Manager - Bosh menyu\n\n` +
-      `Salom, ${firstName}! Quyidagi bo'limlardan birini tanlang:`,
+        `Salom, ${firstName}! Quyidagi bo'limlardan birini tanlang:`,
       {
         reply_markup: {
           inline_keyboard: [
@@ -187,9 +196,7 @@ async function main(): Promise<void> {
               { text: "💵 Tranzaksiyalar", callback_data: "transactions:list" },
               { text: "🏦 Kreditlar", callback_data: "credits:list" },
             ],
-            [
-              { text: "📈 Hisobotlar", callback_data: "reports:dashboard" },
-            ],
+            [{ text: "📈 Hisobotlar", callback_data: "reports:dashboard" }],
           ],
         },
       },
@@ -212,7 +219,10 @@ async function main(): Promise<void> {
   const apiLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
     max: 100,
-    message: { success: false, error: { code: "RATE_LIMIT_EXCEEDED", message: "Too many requests" } },
+    message: {
+      success: false,
+      error: { code: "RATE_LIMIT_EXCEEDED", message: "Too many requests" },
+    },
   });
   app.use("/api", apiLimiter);
 
@@ -245,11 +255,12 @@ async function main(): Promise<void> {
 
   if (config.BOT_WEBHOOK_URL && config.BOT_WEBHOOK_PATH) {
     const webhookPath = config.BOT_WEBHOOK_PATH;
-    logger.info({ webhookUrl: config.BOT_WEBHOOK_URL }, "Starting in webhook mode");
+    const webhookUrl = config.BOT_WEBHOOK_URL;
+    logger.info({ webhookUrl }, "Starting in webhook mode");
 
     app.use(webhookPath, async (req, res) => {
       try {
-        await bot.api.setWebhook(config.BOT_WEBHOOK_URL as string, {
+        await bot.api.setWebhook(webhookUrl, {
           secret_token: config.BOT_SECRET_TOKEN,
         });
         await bot.handleUpdate(req.body);
@@ -280,7 +291,11 @@ async function main(): Promise<void> {
   // BULLMQ WORKER
   // ============================================
 
-  const notificationWorker = new NotificationWorker(bot, notificationsService, transactionsRepository);
+  const notificationWorker = new NotificationWorker(
+    bot,
+    notificationsService,
+    transactionsRepository,
+  );
 
   const worker = queueService.createWorker(async (job) => {
     const data = job.data;
@@ -295,10 +310,10 @@ async function main(): Promise<void> {
         await bot.api.sendMessage(
           data.telegramId,
           `🏦 Kredit to'lovi eslatmasi\n\n` +
-          `Kredit: ${data.creditName}\n` +
-          `Miqdor: ${data.amount}\n` +
-          `Sana: ${new Date(data.paymentDate).toLocaleDateString("uz-UZ")}\n\n` +
-          `Iltimos, o'z vaqtida to'lovni amalga oshiring.`,
+            `Kredit: ${data.creditName}\n` +
+            `Miqdor: ${data.amount}\n` +
+            `Sana: ${new Date(data.paymentDate).toLocaleDateString("uz-UZ")}\n\n` +
+            `Iltimos, o'z vaqtida to'lovni amalga oshiring.`,
         );
         break;
       }

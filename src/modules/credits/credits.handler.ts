@@ -3,6 +3,8 @@ import type { CustomContext } from "../auth/auth.middleware.js";
 import type { CreditsService } from "./credits.service.js";
 import { createPaginationInput } from "../../shared/utils/index.js";
 import { formatMoney } from "../../shared/utils/index.js";
+import { MAIN_MENU_BUTTONS } from "../../shared/utils/reply-keyboard.js";
+import { flowStore } from "../../shared/utils/flow-store.js";
 
 export class CreditsHandler {
   private readonly creditsService: CreditsService;
@@ -13,10 +15,16 @@ export class CreditsHandler {
 
   register(bot: Bot<CustomContext>): void {
     bot.command("credits", this.handleList.bind(this));
+    bot.hears(MAIN_MENU_BUTTONS.credits, this.handleCreditsNav.bind(this));
     bot.callbackQuery("credits:list", this.handleListCallback.bind(this));
     bot.callbackQuery(/^credit:view:/, this.handleView.bind(this));
     bot.callbackQuery(/^credit:archive:/, this.handleArchive.bind(this));
     bot.callbackQuery("credits:stats", this.handleStats.bind(this));
+  }
+
+  private async handleCreditsNav(ctx: CustomContext): Promise<void> {
+    flowStore.delete(ctx.appState.userId);
+    await this.handleList(ctx);
   }
 
   private async handleList(ctx: CustomContext): Promise<void> {
@@ -37,22 +45,18 @@ export class CreditsHandler {
     );
 
     if (result.data.length === 0) {
-      await ctx.reply(
-        "🏦 Kreditlar ro'yxati bo'sh.",
-        {
-          reply_markup: {
-            inline_keyboard: [
-              [{ text: "🔙 Ortga", callback_data: "menu" }],
-            ],
-          },
+      await ctx.reply("🏦 Kreditlar ro'yxati bo'sh.", {
+        reply_markup: {
+          inline_keyboard: [[{ text: "🔙 Ortga", callback_data: "menu" }]],
         },
-      );
+      });
       return;
     }
 
     const creditsText = result.data
       .map((credit) => {
-        const statusIcon = credit.status === "ACTIVE" ? "🟢" : credit.status === "COMPLETED" ? "✅" : "🔴";
+        const statusIcon =
+          credit.status === "ACTIVE" ? "🟢" : credit.status === "COMPLETED" ? "✅" : "🔴";
         return `${statusIcon} ${credit.name}: ${formatMoney(Number(credit.remainingDebt), credit.currency)} / ${formatMoney(Number(credit.totalAmount), credit.currency)}`;
       })
       .join("\n");
@@ -84,10 +88,19 @@ export class CreditsHandler {
       return;
     }
 
-    const credit = await this.creditsService.getById(id, ctx.appState.userId, ctx.appState.userRole);
+    const credit = await this.creditsService.getById(
+      id,
+      ctx.appState.userId,
+      ctx.appState.userRole,
+    );
 
     const typeLabel = credit.type === "ANNUITY" ? "📋 Annuitet" : "📊 Differensial";
-    const statusLabel = credit.status === "ACTIVE" ? "🟢 Faol" : credit.status === "COMPLETED" ? "✅ Yakunlangan" : "🔴 Bekor qilingan";
+    const statusLabel =
+      credit.status === "ACTIVE"
+        ? "🟢 Faol"
+        : credit.status === "COMPLETED"
+          ? "✅ Yakunlangan"
+          : "🔴 Bekor qilingan";
 
     const text =
       `🏦 ${credit.name}\n\n` +
@@ -131,7 +144,10 @@ export class CreditsHandler {
   }
 
   private async handleStats(ctx: CustomContext): Promise<void> {
-    const stats = await this.creditsService.getCreditStats(ctx.appState.userId, ctx.appState.userRole);
+    const stats = await this.creditsService.getCreditStats(
+      ctx.appState.userId,
+      ctx.appState.userRole,
+    );
 
     const text =
       "📊 Kredit statistikasi:\n\n" +
@@ -142,9 +158,7 @@ export class CreditsHandler {
 
     await ctx.reply(text, {
       reply_markup: {
-        inline_keyboard: [
-          [{ text: "🔙 Ortga", callback_data: "credits:list" }],
-        ],
+        inline_keyboard: [[{ text: "🔙 Ortga", callback_data: "credits:list" }]],
       },
     });
     await ctx.answerCallbackQuery();

@@ -2,6 +2,8 @@ import type { Bot } from "grammy";
 import type { CustomContext } from "../auth/auth.middleware.js";
 import type { ReportsService } from "./reports.service.js";
 import { formatMoney } from "../../shared/utils/index.js";
+import { MAIN_MENU_BUTTONS } from "../../shared/utils/reply-keyboard.js";
+import { flowStore } from "../../shared/utils/flow-store.js";
 
 export class ReportsHandler {
   private readonly bot: Bot<CustomContext>;
@@ -14,9 +16,15 @@ export class ReportsHandler {
 
   register(): void {
     this.bot.command("reports", this.handleDashboard.bind(this));
+    this.bot.hears(MAIN_MENU_BUTTONS.reports, this.handleReportsNav.bind(this));
     this.bot.callbackQuery("reports:dashboard", this.handleDashboardCallback.bind(this));
     this.bot.callbackQuery(/^report:period:/, this.handlePeriodReport.bind(this));
     this.bot.callbackQuery("reports:kpi", this.handleKpi.bind(this));
+  }
+
+  private async handleReportsNav(ctx: CustomContext): Promise<void> {
+    flowStore.delete(ctx.appState.userId);
+    await this.handleDashboard(ctx);
   }
 
   private async handleDashboard(ctx: CustomContext): Promise<void> {
@@ -29,7 +37,10 @@ export class ReportsHandler {
   }
 
   private async sendDashboard(ctx: CustomContext): Promise<void> {
-    const dashboard = await this.reportsService.getDashboard(ctx.appState.userId, ctx.appState.userRole);
+    const dashboard = await this.reportsService.getDashboard(
+      ctx.appState.userId,
+      ctx.appState.userRole,
+    );
 
     const text =
       "📊 Dashboard\n\n" +
@@ -52,9 +63,7 @@ export class ReportsHandler {
             { text: "📅 Oylik", callback_data: "report:period:monthly" },
             { text: "📅 Yillik", callback_data: "report:period:yearly" },
           ],
-          [
-            { text: "📈 KPI", callback_data: "reports:kpi" },
-          ],
+          [{ text: "📈 KPI", callback_data: "reports:kpi" }],
           [{ text: "🔙 Ortga", callback_data: "menu" }],
         ],
       },
@@ -107,9 +116,7 @@ export class ReportsHandler {
 
     await ctx.reply(text, {
       reply_markup: {
-        inline_keyboard: [
-          [{ text: "🔙 Dashboard", callback_data: "reports:dashboard" }],
-        ],
+        inline_keyboard: [[{ text: "🔙 Dashboard", callback_data: "reports:dashboard" }]],
       },
     });
     await ctx.answerCallbackQuery();
@@ -128,9 +135,7 @@ export class ReportsHandler {
 
     await ctx.reply(text, {
       reply_markup: {
-        inline_keyboard: [
-          [{ text: "🔙 Dashboard", callback_data: "reports:dashboard" }],
-        ],
+        inline_keyboard: [[{ text: "🔙 Dashboard", callback_data: "reports:dashboard" }]],
       },
     });
     await ctx.answerCallbackQuery();

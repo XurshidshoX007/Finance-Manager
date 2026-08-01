@@ -3,6 +3,8 @@ import type { CustomContext } from "../auth/auth.middleware.js";
 import type { CategoriesService } from "./categories.service.js";
 import { createPaginationInput } from "../../shared/utils/index.js";
 import { formatMoney } from "../../shared/utils/index.js";
+import { MAIN_MENU_BUTTONS } from "../../shared/utils/reply-keyboard.js";
+import { flowStore } from "../../shared/utils/flow-store.js";
 
 export class CategoriesHandler {
   private readonly bot: Bot<CustomContext>;
@@ -15,10 +17,16 @@ export class CategoriesHandler {
 
   register(): void {
     this.bot.command("categories", this.handleList.bind(this));
+    this.bot.hears(MAIN_MENU_BUTTONS.categories, this.handleCategoriesNav.bind(this));
     this.bot.callbackQuery("categories:list", this.handleListCallback.bind(this));
     this.bot.callbackQuery(/^category:view:/, this.handleView.bind(this));
     this.bot.callbackQuery(/^category:archive:/, this.handleArchive.bind(this));
     this.bot.callbackQuery("category:create:start", this.handleCreateStart.bind(this));
+  }
+
+  private async handleCategoriesNav(ctx: CustomContext): Promise<void> {
+    flowStore.delete(ctx.appState.userId);
+    await this.handleList(ctx);
   }
 
   private async handleList(ctx: CustomContext): Promise<void> {
@@ -41,7 +49,7 @@ export class CategoriesHandler {
     if (result.data.length === 0) {
       await ctx.reply(
         "📂 Kategoriyalar ro'yxati bo'sh.\n\n" +
-        "Yangi kategoriya qo'shish uchun quyidagi tugmani bosing:",
+          "Yangi kategoriya qo'shish uchun quyidagi tugmani bosing:",
         {
           reply_markup: {
             inline_keyboard: [
@@ -101,7 +109,11 @@ export class CategoriesHandler {
       return;
     }
 
-    const category = await this.categoriesService.getById(id, ctx.appState.userId, ctx.appState.userRole);
+    const category = await this.categoriesService.getById(
+      id,
+      ctx.appState.userId,
+      ctx.appState.userRole,
+    );
 
     const typeLabel = category.type === "INCOME" ? "🟢 Kirim" : "🔴 Chiqim";
     const text =
@@ -139,20 +151,16 @@ export class CategoriesHandler {
   }
 
   private async handleCreateStart(ctx: CustomContext): Promise<void> {
-    await ctx.reply(
-      "➕ Yangi kategoriya qo'shish\n\n" +
-      "Kategoriya turi tanlang:",
-      {
-        reply_markup: {
-          inline_keyboard: [
-            [
-              { text: "🟢 Kirim", callback_data: "category:create:income" },
-              { text: "🔴 Chiqim", callback_data: "category:create:expense" },
-            ],
-            [{ text: "🔙 Ortga", callback_data: "categories:list" }],
+    await ctx.reply("➕ Yangi kategoriya qo'shish\n\n" + "Kategoriya turi tanlang:", {
+      reply_markup: {
+        inline_keyboard: [
+          [
+            { text: "🟢 Kirim", callback_data: "category:create:income" },
+            { text: "🔴 Chiqim", callback_data: "category:create:expense" },
           ],
-        },
+          [{ text: "🔙 Ortga", callback_data: "categories:list" }],
+        ],
       },
-    );
+    });
   }
 }
