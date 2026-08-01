@@ -1,4 +1,5 @@
 import { Router } from "express";
+import multer from "multer";
 import type { AuthService } from "../modules/auth/auth.service.js";
 import type { SourcesService } from "../modules/sources/sources.service.js";
 import type { CategoriesService } from "../modules/categories/categories.service.js";
@@ -30,6 +31,26 @@ export interface ApiServices {
   backupService: BackupService;
   queueService: QueueService;
 }
+
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    // Accept excel and octet-stream
+    const allowed = [
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "application/vnd.ms-excel",
+      "application/octet-stream",
+      "text/csv",
+    ];
+    if (allowed.includes(file.mimetype) || file.originalname.match(/\.(xlsx|xls|csv)$/i)) {
+      cb(null, true);
+    } else {
+      // Still accept for flexibility, but we will validate later
+      cb(null, true);
+    }
+  },
+});
 
 export function createApiRoutes(services: ApiServices): Router {
   const router = Router();
@@ -401,16 +422,103 @@ export function createApiRoutes(services: ApiServices): Router {
     } catch (error) { next(error); }
   });
 
-  excelRouter.post("/import/preview", async (req, res, next) => {
+  // Support both raw buffer (legacy) and multipart upload
+  excelRouter.post("/import/preview", upload.single("file"), async (req, res, next) => {
     try {
       const userId = req.headers["x-user-id"] as string;
       const userRole = req.headers["x-user-role"] as string;
-      if (!req.body || !Buffer.isBuffer(req.body)) {
-        res.status(400).json({ success: false, error: { message: "File buffer required" } });
+
+      let buffer: Buffer | null = null;
+
+      if ((req as unknown as { file?: { buffer: Buffer } }).file?.buffer) {
+        buffer = (req as unknown as { file: { buffer: Buffer } }).file.buffer;
+      } else if (req.body && Buffer.isBuffer(req.body)) {
+        buffer = req.body as Buffer;
+      } else if ((req.body as { fileBase64?: string })?.fileBase64) {
+        buffer = Buffer.from((req.body as { fileBase64: string }).fileBase64, "base64");
+      }
+
+      if (!buffer) {
+        res.status(400).json({ success: false, error: { message: "File buffer required. Send as multipart 'file' or raw octet-stream." } });
         return;
       }
-      const result = await services.excelService.importPreview(userId, userRole, req.body);
+
+      const result = await services.excelService.importPreview(userId, userRole, buffer);
       res.json({ success: true, data: result });
+    } catch (error) { next(error); }
+  });
+
+  excelRouter.post("/import", upload.single("file"), async (req, res, next) => {
+    try {
+      const userId = req.headers["x-user-id"] as string;
+      const userRole = req.headers["x-user-role"] as string;
+
+      let buffer: Buffer | null = null;
+      let columnMapping: Record<string, string> = {};
+
+      // File extraction
+      if ((req as unknown as { file?: { buffer: Buffer } }).file?.buffer) {
+        buffer = (req as unknown as { file: { buffer: Buffer } }).file.buffer;
+      } else if (req.body && Buffer.isBuffer(req.body)) {
+        buffer = req.body as Buffer;
+      } else if ((req.body as { file?: string; fileBase64?: string })?.fileBase64) {
+        buffer = Buffer.from((req.body as { fileBase64: string }).fileBase64, "base64");
+      } else if ((req.body as { file?: { data?: string } })?.file && typeof (req.body as { file: { data?: string } }).file === "object") {
+        // In case of JSON with file field base64
+        const b = (req.body as { file: string | { data: string } }).file;
+        if (typeof b === "string") {
+          buffer = Buffer.from(b, "base64");
+        } else if (b && (b as { data: string }).data) {
+          buffer = Buffer.from((b as { data: string }).data, "base64");
+        }
+      }
+
+      // Mapping extraction
+      if (req.body) {
+        const body = req.body as Record<string, unknown>;
+        if (body.columnMapping) {
+          if (typeof body.columnMapping === "string") {
+            try {
+              columnMapping = JSON.parse(body.columnMapping as string);
+            } catch {
+              columnMapping = {};
+            }
+          } else if (typeof body.columnMapping === "object") {
+            columnMapping = body.columnMapping as Record<string, string>;
+          }
+        } else if (body.mapping) {
+          if (typeof body.mapping === "string") {
+            try {
+              columnMapping = JSON.parse(body.mapping as string);
+            } catch {
+              columnMapping = {};
+            }
+          } else {
+            columnMapping = body.mapping as Record<string, string>;
+          }
+        }
+      }
+
+      // Also check query param for mapping (legacy)
+      if (Object.keys(columnMapping).length === 0 && req.query["mapping"]) {
+        try {
+          columnMapping = JSON.parse(req.query["mapping"] as string);
+        } catch {
+          // ignore
+        }
+      }
+
+      if (!buffer) {
+        res.status(400).json({ success: false, error: { message: "File buffer required. Send as multipart 'file' or raw octet-stream." } });
+        return;
+      }
+
+      const result = await services.excelService.importTransactions(userId, userRole, buffer, columnMapping);
+      res.json({
+        success: true,
+        data: result,
+        message: `Import finished for user ${userId}. Created: ${result.created}, updated: ${result.updated}.`,
+      });
     } catch (error) { next(error); }
   });
 
