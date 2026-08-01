@@ -133,6 +133,14 @@ export function createApiRoutes(services: ApiServices): Router {
     } catch (error) { next(error); }
   });
 
+  categoriesRouter.post("/defaults", async (req, res, next) => {
+    try {
+      const userId = req.headers["x-user-id"] as string;
+      const created = await services.categoriesService.ensureDefaults(userId);
+      res.json({ success: true, data: { created } });
+    } catch (error) { next(error); }
+  });
+
   categoriesRouter.put("/:id", async (req, res, next) => {
     try {
       const userId = req.headers["x-user-id"] as string;

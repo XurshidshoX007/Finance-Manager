@@ -1,31 +1,46 @@
 import { PrismaClient } from "@prisma/client";
+import { DEFAULT_CATEGORIES } from "../src/modules/categories/default-categories.js";
 
 const prisma = new PrismaClient();
 
-async function main() {
+async function main(): Promise<void> {
   console.log("Seeding database...");
 
-  // Create default categories
-  const incomeCategories = [
-    { name: "Maosh", emoji: "💰", color: "#4CAF50", type: "INCOME" as const },
-    { name: "Bonus", emoji: "🎁", color: "#8BC34A", type: "INCOME" as const },
-    { name: "Investitsiya", emoji: "📈", color: "#CDDC39", type: "INCOME" as const },
-    { name: "Boshqa kirim", emoji: "💵", color: "#00BCD4", type: "INCOME" as const },
-  ];
+  const users = await prisma.user.findMany({ select: { id: true, firstName: true } });
 
-  const expenseCategories = [
-    { name: "Oziq-ovqat", emoji: "🍔", color: "#F44336", type: "EXPENSE" as const },
-    { name: "Transport", emoji: "🚗", color: "#FF9800", type: "EXPENSE" as const },
-    { name: "Ijarа", emoji: "🏠", color: "#E91E63", type: "EXPENSE" as const },
-    { name: "Kommunal", emoji: "💡", color: "#9C27B0", type: "EXPENSE" as const },
-    { name: "Kiyim", emoji: "👕", color: "#673AB7", type: "EXPENSE" as const },
-    { name: "Sog'liq", emoji: "🏥", color: "#3F51B5", type: "EXPENSE" as const },
-    { name: "Ta'lim", emoji: "📚", color: "#2196F3", type: "EXPENSE" as const },
-    { name: "Ko'ngil ochar", emoji: "🎬", color: "#009688", type: "EXPENSE" as const },
-    { name: "Boshqa chiqim", emoji: "💸", color: "#795548", type: "EXPENSE" as const },
-  ];
+  if (users.length === 0) {
+    console.log("No users found — categories are created per user on first use.");
+    return;
+  }
 
-  console.log("Seed completed!");
+  let totalCreated = 0;
+
+  for (const user of users) {
+    const existing = await prisma.category.count({
+      where: { createdBy: user.id, isArchived: false },
+    });
+
+    if (existing > 0) {
+      console.log(`- ${user.firstName}: ${existing} ta kategoriya mavjud, o'tkazib yuborildi`);
+      continue;
+    }
+
+    const result = await prisma.category.createMany({
+      data: DEFAULT_CATEGORIES.map((category) => ({
+        name: category.name,
+        emoji: category.emoji,
+        color: category.color,
+        type: category.type,
+        createdBy: user.id,
+      })),
+      skipDuplicates: true,
+    });
+
+    totalCreated += result.count;
+    console.log(`- ${user.firstName}: ${result.count} ta standart kategoriya qo'shildi`);
+  }
+
+  console.log(`Seed completed! Jami ${totalCreated} ta kategoriya yaratildi.`);
 }
 
 main()

@@ -5,6 +5,7 @@ import type { PaginationInput, PaginatedResult } from "../../shared/types/index.
 import { ROLE_PERMISSIONS, Permission } from "../../shared/types/index.js";
 import { ForbiddenError, NotFoundError, ConflictError } from "../../shared/errors/index.js";
 import { getLogger } from "../../shared/logger/index.js";
+import { DEFAULT_CATEGORIES } from "./default-categories.js";
 
 interface CategoryWithStats {
   id: string;
@@ -101,6 +102,30 @@ export class CategoriesService {
     };
   }
 
+  /**
+   * Foydalanuvchida hech qanday kategoriya bo'lmasa, standart
+   * (default) kirim/chiqim kategoriyalarini yaratadi.
+   * Ro'yxat ochilganda avtomatik chaqiriladi, shuning uchun
+   * yangi foydalanuvchi bo'sh ro'yxat ko'rmaydi.
+   */
+  async ensureDefaults(userId: string): Promise<number> {
+    const count = await this.categoriesRepo.countByUser(userId);
+    if (count > 0) {
+      return 0;
+    }
+
+    const created = await this.categoriesRepo.createMany(DEFAULT_CATEGORIES, userId);
+
+    if (created > 0) {
+      await this.auditLogService.logCreate(userId, "CATEGORY", "default-seed", {
+        count: created,
+      });
+      this.logger.info({ userId, count: created }, "Default categories created");
+    }
+
+    return created;
+  }
+
   async getById(id: string, userId: string, userRole: string): Promise<CategoryWithStats> {
     this.requirePermission(userRole, "CATEGORIES_READ");
 
@@ -122,6 +147,8 @@ export class CategoriesService {
   ): Promise<PaginatedResult<CategoryWithStats>> {
     this.requirePermission(userRole, "CATEGORIES_READ");
 
+    await this.ensureDefaults(userId);
+
     const result = await this.categoriesRepo.findAll(userId, pagination, filters);
 
     const categoriesWithStats = await Promise.all(
@@ -140,6 +167,8 @@ export class CategoriesService {
 
   async listActive(userId: string, userRole: string, type?: string): Promise<CategoryWithStats[]> {
     this.requirePermission(userRole, "CATEGORIES_READ");
+
+    await this.ensureDefaults(userId);
 
     const categories = await this.categoriesRepo.findActiveByUser(userId, type);
 

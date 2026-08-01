@@ -36,6 +36,8 @@ export const api = {
   // Categories
   getCategories: (page = 1, type?: string) => request<import("../types/index.js").PaginatedResult<import("../types/index.js").Category>>(`/categories?page=${page}${type ? `&type=${type}` : ""}`),
 
+  createDefaultCategories: () => request<{ created: number }>("/categories/defaults", { method: "POST", body: JSON.stringify({}) }),
+
   // Transactions
   getTransactions: (page = 1, type?: string) => request<import("../types/index.js").PaginatedResult<import("../types/index.js").Transaction>>(`/transactions?page=${page}${type ? `&type=${type}` : ""}`),
   createTransaction: (data: Record<string, unknown>) => request<import("../types/index.js").Transaction>("/transactions", { method: "POST", body: JSON.stringify(data) }),

@@ -1,8 +1,16 @@
-import type { Bot } from "grammy";
+import type { Bot, NextFunction } from "grammy";
 import type { CustomContext } from "../auth/auth.middleware.js";
 import type { CategoriesService } from "./categories.service.js";
 import { createPaginationInput } from "../../shared/utils/index.js";
 import { formatMoney } from "../../shared/utils/index.js";
+import { createCategorySchema } from "./categories.types.js";
+
+interface CreateSession {
+  type: "INCOME" | "EXPENSE";
+  step: "name";
+}
+
+const createSessions = new Map<string, CreateSession>();
 
 export class CategoriesHandler {
   private readonly bot: Bot<CustomContext>;
@@ -19,6 +27,10 @@ export class CategoriesHandler {
     this.bot.callbackQuery(/^category:view:/, this.handleView.bind(this));
     this.bot.callbackQuery(/^category:archive:/, this.handleArchive.bind(this));
     this.bot.callbackQuery("category:create:start", this.handleCreateStart.bind(this));
+    this.bot.callbackQuery(/^category:create:(income|expense)$/, this.handleCreateType.bind(this));
+    this.bot.callbackQuery("category:defaults", this.handleCreateDefaults.bind(this));
+    this.bot.command("cancel", this.handleCancel.bind(this));
+    this.bot.on("message:text", this.handleCreateInput.bind(this));
   }
 
   private async handleList(ctx: CustomContext): Promise<void> {
@@ -41,10 +53,11 @@ export class CategoriesHandler {
     if (result.data.length === 0) {
       await ctx.reply(
         "📂 Kategoriyalar ro'yxati bo'sh.\n\n" +
-        "Yangi kategoriya qo'shish uchun quyidagi tugmani bosing:",
+        "Standart kategoriyalarni bir bosishda qo'shishingiz yoki o'zingiznikini yaratishingiz mumkin:",
         {
           reply_markup: {
             inline_keyboard: [
+              [{ text: "⚡️ Standart kategoriyalarni qo'shish", callback_data: "category:defaults" }],
               [{ text: "➕ Kategoriya qo'shish", callback_data: "category:create:start" }],
               [{ text: "🔙 Ortga", callback_data: "menu" }],
             ],
@@ -154,5 +167,104 @@ export class CategoriesHandler {
         },
       },
     );
+  }
+
+  private async handleCreateType(ctx: CustomContext): Promise<void> {
+    const data = ctx.callbackQuery?.data ?? "";
+    const type = data.endsWith("income") ? "INCOME" : "EXPENSE";
+
+    createSessions.set(ctx.appState.userId, { type, step: "name" });
+
+    await ctx.answerCallbackQuery();
+    await ctx.reply(
+      `➕ Yangi ${type === "INCOME" ? "🟢 kirim" : "🔴 chiqim"} kategoriyasi\n\n` +
+      "Kategoriya nomini yuboring.\n" +
+      "Ixtiyoriy: nom oldidan emoji qo'shsangiz, u kategoriya emojisi bo'ladi.\n" +
+      "Masalan: 🍔 Oziq-ovqat\n\n" +
+      "Bekor qilish uchun /cancel",
+    );
+  }
+
+  private async handleCreateDefaults(ctx: CustomContext): Promise<void> {
+    const created = await this.categoriesService.ensureDefaults(ctx.appState.userId);
+
+    if (created === 0) {
+      await ctx.answerCallbackQuery("ℹ️ Kategoriyalar allaqachon mavjud");
+    } else {
+      await ctx.answerCallbackQuery(`✅ ${created} ta kategoriya qo'shildi`);
+    }
+
+    await this.sendCategoriesList(ctx);
+  }
+
+  private async handleCancel(ctx: CustomContext): Promise<void> {
+    if (createSessions.delete(ctx.appState.userId)) {
+      await ctx.reply("❌ Kategoriya yaratish bekor qilindi.");
+    }
+  }
+
+  private async handleCreateInput(ctx: CustomContext, next: NextFunction): Promise<void> {
+    const session = createSessions.get(ctx.appState.userId);
+    if (!session) {
+      await next();
+      return;
+    }
+
+    const text = ctx.message?.text?.trim();
+    if (!text) {
+      await next();
+      return;
+    }
+
+    if (text.startsWith("/")) {
+      createSessions.delete(ctx.appState.userId);
+      await next();
+      return;
+    }
+
+    const { emoji, name } = this.parseNameInput(text);
+
+    const validation = createCategorySchema.safeParse({
+      name,
+      emoji,
+      color: session.type === "INCOME" ? "#4CAF50" : "#F44336",
+      type: session.type,
+    });
+
+    if (!validation.success) {
+      const errors = validation.error.issues.map((i) => `• ${i.message}`).join("\n");
+      await ctx.reply(`❌ Noto'g'ri ma'lumot:\n${errors}\n\nQaytadan kiriting yoki /cancel`);
+      return;
+    }
+
+    try {
+      const category = await this.categoriesService.create(
+        ctx.appState.userId,
+        ctx.appState.userRole,
+        validation.data,
+      );
+      createSessions.delete(ctx.appState.userId);
+      await ctx.reply(
+        `✅ Kategoriya yaratildi!\n\n` +
+        `${category.emoji} ${category.name}\n` +
+        `Turi: ${category.type === "INCOME" ? "🟢 Kirim" : "🔴 Chiqim"}`,
+        {
+          reply_markup: {
+            inline_keyboard: [[{ text: "📂 Kategoriyalar", callback_data: "categories:list" }]],
+          },
+        },
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Xatolik yuz berdi";
+      await ctx.reply(`❌ ${message}\n\nQaytadan urinib ko'ring yoki /cancel`);
+    }
+  }
+
+  private parseNameInput(text: string): { emoji: string; name: string } {
+    const match = text.match(/^(\p{Extended_Pictographic}(?:\uFE0F)?)\s*(.+)$/u);
+    if (match && match[1] && match[2]) {
+      return { emoji: match[1], name: match[2].trim() };
+    }
+    return { emoji: "📝", name: text };
   }
 }

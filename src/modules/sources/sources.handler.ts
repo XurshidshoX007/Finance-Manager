@@ -1,4 +1,4 @@
-import type { Bot } from "grammy";
+import type { Bot, NextFunction } from "grammy";
 import type { CustomContext } from "../auth/auth.middleware.js";
 import type { SourcesService } from "./sources.service.js";
 import { createSourceSchema } from "./sources.types.js";
@@ -138,12 +138,18 @@ export class SourcesHandler {
     userSessions.set(ctx.appState.userId, { creatingSource: true });
   }
 
-  private async handleCreateInput(ctx: CustomContext): Promise<void> {
+  private async handleCreateInput(ctx: CustomContext, next: NextFunction): Promise<void> {
     const session = userSessions.get(ctx.appState.userId);
-    if (!session?.creatingSource) return;
+    if (!session?.creatingSource) {
+      await next();
+      return;
+    }
 
     const text = ctx.message?.text;
-    if (!text) return;
+    if (!text) {
+      await next();
+      return;
+    }
 
     if (text === "/cancel") {
       userSessions.delete(ctx.appState.userId);

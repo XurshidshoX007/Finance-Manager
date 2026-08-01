@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { api } from "../services/api";
 import { SkeletonList } from "../components/Skeleton";
@@ -10,9 +10,17 @@ function formatMoney(amount: number): string {
 
 export function Categories() {
   const [type, setType] = useState<"INCOME" | "EXPENSE">("EXPENSE");
+  const queryClient = useQueryClient();
   const { data, isLoading, error } = useQuery<PaginatedResult<Category>>({
     queryKey: ["categories", type],
     queryFn: () => api.getCategories(1, type),
+  });
+
+  const seedDefaults = useMutation({
+    mutationFn: () => api.createDefaultCategories(),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["categories"] });
+    },
   });
 
   if (error) {
@@ -69,9 +77,19 @@ export function Categories() {
           ))}
         </div>
       ) : (
-        <div className="text-center py-8 text-[var(--tg-theme-hint-color)]">
+        <div className="text-center py-8 text-[var(--tg-theme-hint-color)] space-y-3">
           <p className="text-4xl mb-2">📂</p>
           <p>Kategoriyalar topilmadi</p>
+          <button
+            onClick={() => seedDefaults.mutate()}
+            disabled={seedDefaults.isPending}
+            className="px-4 py-2 rounded-lg bg-[var(--tg-theme-button-color)] text-[var(--tg-theme-button-text-color)] text-sm font-medium disabled:opacity-60"
+          >
+            {seedDefaults.isPending ? "Qo'shilmoqda..." : "⚡️ Standart kategoriyalarni qo'shish"}
+          </button>
+          {seedDefaults.isError && (
+            <p className="text-xs text-red-500">{(seedDefaults.error as Error).message}</p>
+          )}
         </div>
       )}
     </div>

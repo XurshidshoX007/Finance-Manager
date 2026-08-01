@@ -24,6 +24,24 @@ export class CategoriesRepository {
     });
   }
 
+  async createMany(
+    data: Array<{ name: string; emoji: string; color: string; type: "INCOME" | "EXPENSE" }>,
+    userId: string,
+  ): Promise<number> {
+    const result = await this.prisma.category.createMany({
+      data: data.map((item) => ({
+        name: item.name,
+        emoji: item.emoji,
+        color: item.color,
+        type: item.type,
+        createdBy: userId,
+      })),
+      skipDuplicates: true,
+    });
+
+    return result.count;
+  }
+
   async createGroup(data: CreateCategoryGroupInput, userId: string) {
     return this.prisma.categoryGroup.create({
       data: {
