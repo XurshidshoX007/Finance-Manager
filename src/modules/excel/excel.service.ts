@@ -84,7 +84,16 @@ const FIELD_ALIASES: Record<string, string[]> = {
   ],
   category: ["category", "kategoriya", "cat", "toifa", "category name", "kategoriya nomi"],
   source: ["source", "manba", "account", "hisob", "source name", "manba nomi", "wallet"],
-  referenceId: ["referenceid", "reference_id", "ref", "refid", "external_id", "externalid", "id", "transactionid"],
+  referenceId: [
+    "referenceid",
+    "reference_id",
+    "ref",
+    "refid",
+    "external_id",
+    "externalid",
+    "id",
+    "transactionid",
+  ],
 };
 
 function normalizeHeader(h: string): string {
@@ -131,7 +140,8 @@ function normalizeTransactionType(raw: string): TxType | null {
   if (expenseTokens.includes(s)) return "EXPENSE";
 
   if (s.includes("kirim") || s.includes("income") || s.includes("daromad")) return "INCOME";
-  if (s.includes("chiqim") || s.includes("expense") || s.includes("xarajat") || s.includes("chiq")) return "EXPENSE";
+  if (s.includes("chiqim") || s.includes("expense") || s.includes("xarajat") || s.includes("chiq"))
+    return "EXPENSE";
 
   const up = s.toUpperCase();
   if (up === "INCOME") return "INCOME";
@@ -144,7 +154,10 @@ function parseAmount(raw: string): number | null {
   if (!raw) return null;
   let cleaned = raw.trim();
   cleaned = cleaned.replace(/\u00A0/g, " ");
-  cleaned = cleaned.replace(/[A-Z]{3}/g, "").replace(/UZS|USD|EUR|RUB|GBP|CNY/gi, "").trim();
+  cleaned = cleaned
+    .replace(/[A-Z]{3}/g, "")
+    .replace(/UZS|USD|EUR|RUB|GBP|CNY/gi, "")
+    .trim();
   cleaned = cleaned.replace(/\s/g, "");
 
   if (cleaned.includes(",") && cleaned.includes(".")) {
@@ -182,12 +195,12 @@ function parseCurrency(raw: string): Currency {
   const map: Record<string, Currency> = {
     "SO'M": "UZS",
     SOM: "UZS",
-    "СЎМ": "UZS",
+    СЎМ: "UZS",
     DOLLAR: "USD",
     EURO: "EUR",
     EVRO: "EUR",
     RUBL: "RUB",
-    "РУБ": "RUB",
+    РУБ: "RUB",
   };
   if (map[up]) return map[up];
   return "UZS";
@@ -226,12 +239,12 @@ function parseDate(raw: unknown): Date | null {
 
   let m = s.match(dmyWithTime);
   if (m) {
-    const day = parseInt(m[1]!, 10);
-    const month = parseInt(m[2]!, 10) - 1;
-    let year = parseInt(m[3]!, 10);
-    const hour = parseInt(m[4]!, 10);
-    const minute = parseInt(m[5]!, 10);
-    const second = m[6] ? parseInt(m[6]!, 10) : 0;
+    const day = parseInt(m[1] ?? "0", 10);
+    const month = parseInt(m[2] ?? "0", 10) - 1;
+    let year = parseInt(m[3] ?? "0", 10);
+    const hour = parseInt(m[4] ?? "0", 10);
+    const minute = parseInt(m[5] ?? "0", 10);
+    const second = m[6] ? parseInt(m[6], 10) : 0;
     if (year < 100) year += 2000;
     const d = new Date(year, month, day, hour, minute, second);
     if (!isNaN(d.getTime())) return d;
@@ -239,9 +252,9 @@ function parseDate(raw: unknown): Date | null {
 
   m = s.match(dmYRegex);
   if (m) {
-    const day = parseInt(m[1]!, 10);
-    const month = parseInt(m[2]!, 10) - 1;
-    let year = parseInt(m[3]!, 10);
+    const day = parseInt(m[1] ?? "0", 10);
+    const month = parseInt(m[2] ?? "0", 10) - 1;
+    let year = parseInt(m[3] ?? "0", 10);
     if (year < 100) year += 2000;
     const d = new Date(year, month, day);
     if (!isNaN(d.getTime())) return d;
@@ -249,9 +262,9 @@ function parseDate(raw: unknown): Date | null {
 
   m = s.match(yMdRegex);
   if (m) {
-    const year = parseInt(m[1]!, 10);
-    const month = parseInt(m[2]!, 10) - 1;
-    const day = parseInt(m[3]!, 10);
+    const year = parseInt(m[1] ?? "0", 10);
+    const month = parseInt(m[2] ?? "0", 10) - 1;
+    const day = parseInt(m[3] ?? "0", 10);
     const d = new Date(year, month, day);
     if (!isNaN(d.getTime())) return d;
   }
@@ -276,8 +289,9 @@ function resolveColumnIndex(
     return null;
   }
   const norm = normalizeHeader(trimmed);
-  if (headerIndexMap.has(norm)) {
-    return headerIndexMap.get(norm)!;
+  const mappedIdx = headerIndexMap.get(norm);
+  if (mappedIdx !== undefined) {
+    return mappedIdx;
   }
   for (let i = 0; i < normalizedColumns.length; i++) {
     const colNorm = normalizedColumns[i];
@@ -289,7 +303,10 @@ function resolveColumnIndex(
   return null;
 }
 
-function autoDetectMapping(_columns: string[], normalizedColumns: string[]): Record<string, string> {
+function autoDetectMapping(
+  _columns: string[],
+  normalizedColumns: string[],
+): Record<string, string> {
   const mapping: Record<string, string> = {};
   for (const [field, aliases] of Object.entries(FIELD_ALIASES)) {
     for (let i = 0; i < normalizedColumns.length; i++) {
@@ -320,7 +337,11 @@ export class ExcelService {
     this.auditLogService = auditLogService;
   }
 
-  async exportTransactions(userId: string, userRole: string, filters?: Record<string, unknown>): Promise<Buffer> {
+  async exportTransactions(
+    userId: string,
+    userRole: string,
+    filters?: Record<string, unknown>,
+  ): Promise<Buffer> {
     this.requirePermission(userRole, Permission.EXCEL_EXPORT);
     const where: Record<string, unknown> = {
       createdBy: userId,
@@ -542,8 +563,9 @@ export class ExcelService {
         const mappedIdxStr = autoMapping[field];
         if (mappedIdxStr) {
           const idx = parseInt(mappedIdxStr, 10);
-          if (!isNaN(idx) && columns[idx - 1]) {
-            return data[columns[idx - 1]!] ?? "";
+          const colName = columns[idx - 1] ?? "";
+          if (!isNaN(idx) && colName) {
+            return data[colName] ?? "";
           }
         }
         for (const alias of FIELD_ALIASES[field] || []) {
@@ -560,7 +582,13 @@ export class ExcelService {
 
       let amountStr = extract("amount");
       if (!amountStr) {
-        amountStr = data["amount"] ?? data["Amount"] ?? data["miqdor"] ?? data["Miqdor"] ?? data["summa"] ?? "";
+        amountStr =
+          data["amount"] ??
+          data["Amount"] ??
+          data["miqdor"] ??
+          data["Miqdor"] ??
+          data["summa"] ??
+          "";
       }
       const amount = parseAmount(amountStr);
       if (amount === null || amount <= 0) {
@@ -641,7 +669,10 @@ export class ExcelService {
 
     const autoMapping = autoDetectMapping(columns, normalizedColumns);
     const effectiveMapping: Record<string, number> = {};
-    const allFields = new Set<string>([...Object.keys(FIELD_ALIASES), ...Object.keys(columnMapping)]);
+    const allFields = new Set<string>([
+      ...Object.keys(FIELD_ALIASES),
+      ...Object.keys(columnMapping),
+    ]);
     for (const field of allFields) {
       const userMapped = columnMapping[field];
       let idx: number | null = null;
@@ -649,7 +680,10 @@ export class ExcelService {
         idx = resolveColumnIndex(userMapped, columns, normalizedColumns, headerIndexMap);
       }
       if (idx === null && autoMapping[field]) {
-        idx = resolveColumnIndex(autoMapping[field]!, columns, normalizedColumns, headerIndexMap);
+        const autoMapped = autoMapping[field];
+        if (autoMapped) {
+          idx = resolveColumnIndex(autoMapped, columns, normalizedColumns, headerIndexMap);
+        }
       }
       if (idx !== null) {
         effectiveMapping[field] = idx;
@@ -657,7 +691,10 @@ export class ExcelService {
     }
 
     if (!effectiveMapping["type"] && !effectiveMapping["amount"]) {
-      this.logger.warn({ userId, columns }, "Could not auto-detect essential columns, will use heuristic");
+      this.logger.warn(
+        { userId, columns },
+        "Could not auto-detect essential columns, will use heuristic",
+      );
     }
 
     let created = 0;
@@ -777,7 +814,7 @@ export class ExcelService {
             });
             if (existing) {
               cachedId = existing.id;
-              categoryCache.set(key, cachedId!);
+              categoryCache.set(key, existing.id);
             } else {
               const createdCat = await this.prisma.category.create({
                 data: {
@@ -789,7 +826,7 @@ export class ExcelService {
                 },
               });
               cachedId = createdCat.id;
-              categoryCache.set(key, cachedId!);
+              categoryCache.set(key, createdCat.id);
             }
           } catch (catErr) {
             this.logger.warn({ rowNumber, categoryRaw, error: catErr }, "Category resolve failed");
@@ -813,7 +850,7 @@ export class ExcelService {
             });
             if (existing) {
               cachedId = existing.id;
-              sourceCache.set(key, cachedId!);
+              sourceCache.set(key, existing.id);
             } else {
               const createdSrc = await this.prisma.source.create({
                 data: {
@@ -825,7 +862,7 @@ export class ExcelService {
                 },
               });
               cachedId = createdSrc.id;
-              sourceCache.set(key, cachedId!);
+              sourceCache.set(key, createdSrc.id);
             }
           } catch (srcErr) {
             this.logger.warn({ rowNumber, sourceRaw, error: srcErr }, "Source resolve failed");
@@ -924,7 +961,9 @@ export class ExcelService {
       `Import finished for user ${userId}. Created: ${created}, updated: ${updated}.`,
     );
 
-    this.logger.info(`Import finished for user ${userId}. Created: ${created}, updated: ${updated}.`);
+    this.logger.info(
+      `Import finished for user ${userId}. Created: ${created}, updated: ${updated}.`,
+    );
 
     return {
       imported: created,

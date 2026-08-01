@@ -5,6 +5,7 @@ import type { Logger } from "pino";
 import type { AuthService } from "./auth.service.js";
 import type { AuditLogService } from "../users/audit-log.service.js";
 import { Role, ROLE_PERMISSIONS, type Permission } from "../../shared/types/index.js";
+import { buildMainKeyboard } from "../../shared/utils/reply-keyboard.js";
 import { ForbiddenError, UnauthorizedError } from "../../shared/errors/index.js";
 import { getLogger } from "../../shared/logger/index.js";
 
@@ -53,10 +54,12 @@ export function createAuthMiddleware(authService: AuthService): MiddlewareFn<Cus
       if (loginResult.isFirstLogin) {
         await ctx.reply(
           `👋 Salom, ${telegramUser.first_name}!\n\n` +
-          `Siz Finance Manager tizimiga muvaffaqiyatli ro'yxatdan o'tdingiz.\n` +
-          `Sizning rolingiz: ${loginResult.user.role}\n\n` +
-          `📊 /menu - Bosh menyu\n` +
-          `❓ /help - Yordam`,
+            `Siz Finance Manager tizimiga muvaffaqiyatli ro'yxatdan o'tdingiz.\n` +
+            `Sizning rolingiz: ${loginResult.user.role}\n\n` +
+            `Pastdagi tugmalar orqali boshqaring:\n` +
+            `💵 Kirim / 🔴 Chiqim — pul yozish\n` +
+            `📊 Balans — holatni ko'rish`,
+          buildMainKeyboard(loginResult.user.role as Role),
         );
       }
     } catch (error) {
