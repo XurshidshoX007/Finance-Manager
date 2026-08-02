@@ -3,22 +3,20 @@ import type { CreditsRepository } from "../credits/credits.repository.js";
 import type { AuditLogService } from "../users/audit-log.service.js";
 import type { ReportFilterInput, ReportResult, DashboardResult, KpiResult } from "./reports.types.js";
 import { ROLE_PERMISSIONS, Permission } from "../../shared/types/index.js";
-import { ForbiddenError } from "../../shared/errors/index.js";
+import { ForbiddenError, ValidationError } from "../../shared/errors/index.js";
 import { startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfYear, endOfYear } from "../../shared/utils/index.js";
 
 export class ReportsService {
   private readonly transactionsRepo: TransactionsRepository;
   private readonly creditsRepo: CreditsRepository;
-  private readonly auditLogService: AuditLogService;
 
   constructor(
     transactionsRepo: TransactionsRepository,
     creditsRepo: CreditsRepository,
-    auditLogService: AuditLogService,
+    _auditLogService: AuditLogService,
   ) {
     this.transactionsRepo = transactionsRepo;
     this.creditsRepo = creditsRepo;
-    this.auditLogService = auditLogService;
   }
 
   async getReport(userId: string, userRole: string, input: ReportFilterInput): Promise<ReportResult> {
@@ -35,35 +33,55 @@ export class ReportsService {
       this.transactionsRepo.calculateBalanceByCurrency(userId, dateFrom, dateTo),
     ]);
 
-    const totalIncome = topIncomeCategories.reduce((sum, c) => sum + c.total, 0);
-    const totalExpense = topExpenseCategories.reduce((sum, c) => sum + c.total, 0);
+    // Foiz endi o'z turi ichida hisoblanadi: kirim kategoriyasi jami
+    // kirimga, chiqim kategoriyasi jami chiqimga nisbatan.
+    // Ilgari ikkalasi qo'shilib bo'linardi va foizlar ma'nosiz chiqardi.
+    const incomeTotal = topIncomeCategories.reduce((sum, c) => sum + c.total, 0);
+    const expenseTotal = topExpenseCategories.reduce((sum, c) => sum + c.total, 0);
 
-    const topCategories = [...topIncomeCategories, ...topExpenseCategories]
-      .map((c) => ({
+    const percentage = (value: number, base: number): number =>
+      base > 0 ? Math.round((value / base) * 10000) / 100 : 0;
+
+    const topCategories = [
+      ...topIncomeCategories.map((c) => ({
         id: c.categoryId,
         name: c.categoryName,
         emoji: c.categoryEmoji,
         total: c.total,
-        percentage: c.total > 0 ? (c.total / (totalIncome + totalExpense)) * 100 : 0,
-      }))
+        percentage: percentage(c.total, incomeTotal),
+      })),
+      ...topExpenseCategories.map((c) => ({
+        id: c.categoryId,
+        name: c.categoryName,
+        emoji: c.categoryEmoji,
+        total: c.total,
+        percentage: percentage(c.total, expenseTotal),
+      })),
+    ]
       .sort((a, b) => b.total - a.total)
       .slice(0, 10);
 
-    const topSources = [...topIncomeSources, ...topExpenseSources]
-      .map((s) => ({
+    const incomeSourceTotal = topIncomeSources.reduce((sum, s) => sum + s.total, 0);
+    const expenseSourceTotal = topExpenseSources.reduce((sum, s) => sum + s.total, 0);
+
+    const topSources = [
+      ...topIncomeSources.map((s) => ({
         id: s.sourceId,
         name: s.sourceName,
         emoji: s.sourceEmoji,
         total: s.total,
-        percentage: s.total > 0 ? (s.total / (totalIncome + totalExpense)) * 100 : 0,
-      }))
+        percentage: percentage(s.total, incomeSourceTotal),
+      })),
+      ...topExpenseSources.map((s) => ({
+        id: s.sourceId,
+        name: s.sourceName,
+        emoji: s.sourceEmoji,
+        total: s.total,
+        percentage: percentage(s.total, expenseSourceTotal),
+      })),
+    ]
       .sort((a, b) => b.total - a.total)
       .slice(0, 10);
-
-    await this.auditLogService.logExport(userId, "REPORT", {
-      period: input.period,
-      currency: input.currency,
-    });
 
     return {
       period: input.period,
@@ -86,12 +104,12 @@ export class ReportsService {
     const monthStart = startOfMonth(now);
     const monthEnd = endOfMonth(now);
 
+    // Ilgari bugungi va oylik balans ikki martadan so'ralardi
+    // (9 ta so'rov o'rniga endi 7 ta).
     const [
       totalBalance,
-      todayIncomeResult,
-      todayExpenseResult,
-      monthlyIncomeResult,
-      monthlyExpenseResult,
+      todayBalance,
+      monthlyBalance,
       topExpenseCategories,
       topIncomeCategories,
       creditStats,
@@ -99,8 +117,6 @@ export class ReportsService {
     ] = await Promise.all([
       this.transactionsRepo.calculateBalanceByCurrency(userId),
       this.transactionsRepo.calculateBalance(userId, "UZS", todayStart, todayEnd),
-      this.transactionsRepo.calculateBalance(userId, "UZS", todayStart, todayEnd),
-      this.transactionsRepo.calculateBalance(userId, "UZS", monthStart, monthEnd),
       this.transactionsRepo.calculateBalance(userId, "UZS", monthStart, monthEnd),
       this.transactionsRepo.sumByCategory(userId, "EXPENSE", monthStart, monthEnd),
       this.transactionsRepo.sumByCategory(userId, "INCOME", monthStart, monthEnd),
@@ -110,10 +126,10 @@ export class ReportsService {
 
     return {
       totalBalance,
-      todayIncome: todayIncomeResult.income,
-      todayExpense: todayExpenseResult.expense,
-      monthlyIncome: monthlyIncomeResult.income,
-      monthlyExpense: monthlyExpenseResult.expense,
+      todayIncome: todayBalance.income,
+      todayExpense: todayBalance.expense,
+      monthlyIncome: monthlyBalance.income,
+      monthlyExpense: monthlyBalance.expense,
       activeCredits: creditStats,
       totalRemainingDebt: String(remainingDebt),
       topExpenseCategories: topExpenseCategories.slice(0, 5).map((c) => ({
@@ -183,8 +199,23 @@ export class ReportsService {
   private getDateRange(period: string, dateFrom?: string, dateTo?: string): { dateFrom?: Date; dateTo?: Date } {
     const now = new Date();
 
-    if (period === "custom" && dateFrom && dateTo) {
-      return { dateFrom: new Date(dateFrom), dateTo: new Date(dateTo) };
+    if (period === "custom") {
+      if (!dateFrom || !dateTo) {
+        throw new ValidationError("'custom' period requires both dateFrom and dateTo");
+      }
+
+      const from = new Date(dateFrom);
+      const to = new Date(dateTo);
+
+      if (Number.isNaN(from.getTime()) || Number.isNaN(to.getTime())) {
+        throw new ValidationError("dateFrom and dateTo must be valid dates");
+      }
+
+      if (from > to) {
+        throw new ValidationError("dateFrom cannot be later than dateTo");
+      }
+
+      return { dateFrom: from, dateTo: to };
     }
 
     switch (period) {

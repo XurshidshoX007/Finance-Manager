@@ -20,7 +20,15 @@ export class BackupService {
       fs.mkdirSync(backupDir, { recursive: true });
     }
 
-    const timestamp = formatDate(new Date()).replace(/-/g, "_");
+    // Ilgari faqat sana ishlatilardi: bir kunda ikkinchi backup
+    // birinchisining ustiga yozilib ketardi.
+    const now = new Date();
+    const timestamp =
+      formatDate(now).replace(/-/g, "_") +
+      "_" +
+      String(now.getHours()).padStart(2, "0") +
+      String(now.getMinutes()).padStart(2, "0") +
+      String(now.getSeconds()).padStart(2, "0");
     const sqlFileName = `finance_manager_${timestamp}.sql`;
     const sqlFilePath = path.join(backupDir, sqlFileName);
     const zipFileName = `finance_manager_${timestamp}.zip`;
@@ -52,8 +60,6 @@ export class BackupService {
 
       await this.zipFile(sqlFilePath, zipFilePath);
 
-      fs.unlinkSync(sqlFilePath);
-
       this.logger.info({ zipFilePath }, "Backup zip created");
 
       await this.cleanOldBackups(backupDir, config.BACKUP_RETENTION_DAYS);
@@ -61,7 +67,14 @@ export class BackupService {
       return zipFilePath;
     } catch (error) {
       this.logger.error({ error }, "Backup failed");
+
+      // Yarim qolgan zip faylni tozalaymiz, aks holda buzuq
+      // arxiv "haqiqiy backup" sifatida ro'yxatda turaverardi
+      this.safeUnlink(zipFilePath);
       throw error;
+    } finally {
+      // Xato bo'lsa ham vaqtinchalik .sql fayl qolib ketmasin
+      this.safeUnlink(sqlFilePath);
     }
   }
 
@@ -93,12 +106,22 @@ export class BackupService {
         "-f", sqlFilePath,
       ], { env, timeout: 300000 });
 
-      fs.unlinkSync(sqlFilePath);
-
       this.logger.info("Restore completed successfully");
     } catch (error) {
       this.logger.error({ error }, "Restore failed");
       throw error;
+    } finally {
+      this.safeUnlink(sqlFilePath);
+    }
+  }
+
+  private safeUnlink(filePath: string): void {
+    try {
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+      }
+    } catch (error) {
+      this.logger.warn({ error, filePath }, "Failed to remove temporary file");
     }
   }
 
@@ -110,17 +133,20 @@ export class BackupService {
       return [];
     }
 
+    type BackupInfo = { fileName: string; size: number; createdAt: Date };
+
     const files = fs.readdirSync(backupDir)
       .filter((f) => f.endsWith(".zip"))
-      .map((f) => {
-        const filePath = path.join(backupDir, f);
-        const stat = fs.statSync(filePath);
-        return {
-          fileName: f,
-          size: stat.size,
-          createdAt: stat.birthtime,
-        };
+      .map((f): BackupInfo | null => {
+        try {
+          const stat = fs.statSync(path.join(backupDir, f));
+          return { fileName: f, size: stat.size, createdAt: stat.mtime };
+        } catch {
+          // Fayl parallel o'chirilgan bo'lishi mumkin
+          return null;
+        }
       })
+      .filter((f): f is BackupInfo => f !== null)
       .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
 
     return files;
@@ -160,11 +186,16 @@ export class BackupService {
 
     for (const file of files) {
       const filePath = path.join(backupDir, file);
-      const stat = fs.statSync(filePath);
 
-      if (now - stat.birthtime.getTime() > maxAge) {
-        fs.unlinkSync(filePath);
-        this.logger.info({ file }, "Old backup deleted");
+      try {
+        // birthtime ba'zi FS'larda 0 qaytaradi — mtime ishonchliroq
+        const stat = fs.statSync(filePath);
+        if (now - stat.mtime.getTime() > maxAge) {
+          fs.unlinkSync(filePath);
+          this.logger.info({ file }, "Old backup deleted");
+        }
+      } catch (error) {
+        this.logger.warn({ error, file }, "Failed to inspect/delete old backup");
       }
     }
   }

@@ -4,6 +4,7 @@ import type { SourcesService } from "./sources.service.js";
 import { createSourceSchema } from "./sources.types.js";
 import { createPaginationInput } from "../../shared/utils/index.js";
 import { formatMoney } from "../../shared/utils/index.js";
+import { editOrReply, safeAnswerCallback } from "../../shared/telegram/index.js";
 import { SessionStore } from "../../shared/session/index.js";
 
 const userSessions = new SessionStore<{ creatingSource: boolean }>();
@@ -32,7 +33,7 @@ export class SourcesHandler {
 
   private async handleListCallback(ctx: CustomContext): Promise<void> {
     await this.sendSourcesList(ctx);
-    await ctx.answerCallbackQuery();
+    await safeAnswerCallback(ctx);
   }
 
   private async sendSourcesList(ctx: CustomContext): Promise<void> {
@@ -89,7 +90,7 @@ export class SourcesHandler {
 
     const id = data.split(":")[2];
     if (!id) {
-      await ctx.answerCallbackQuery("❌ Noto'g'ri ma'lumot");
+      await safeAnswerCallback(ctx, "❌ Noto'g'ri ma'lumot");
       return;
     }
 
@@ -103,7 +104,7 @@ export class SourcesHandler {
       `📊 Balans: ${formatMoney(source.balance.net, source.currency)}\n` +
       (source.description ? `📝 ${source.description}\n` : "");
 
-    await ctx.editMessageText(text, {
+    await editOrReply(ctx, text, {
       reply_markup: {
         inline_keyboard: [
           [{ text: "🗑 Arxivlash", callback_data: `source:archive:${source.id}` }],
@@ -111,7 +112,7 @@ export class SourcesHandler {
         ],
       },
     });
-    await ctx.answerCallbackQuery();
+    await safeAnswerCallback(ctx);
   }
 
   private async handleArchive(ctx: CustomContext): Promise<void> {
@@ -120,12 +121,12 @@ export class SourcesHandler {
 
     const id = data.split(":")[2];
     if (!id) {
-      await ctx.answerCallbackQuery("❌ Noto'g'ri ma'lumot");
+      await safeAnswerCallback(ctx, "❌ Noto'g'ri ma'lumot");
       return;
     }
 
     await this.sourcesService.archive(ctx.appState.userId, ctx.appState.userRole, id);
-    await ctx.answerCallbackQuery("✅ Manba arxivlandi");
+    await safeAnswerCallback(ctx, "✅ Manba arxivlandi");
     await this.sendSourcesList(ctx);
   }
 

@@ -3,6 +3,7 @@ import type { CustomContext } from "../auth/auth.middleware.js";
 import type { CategoriesService } from "./categories.service.js";
 import { createPaginationInput } from "../../shared/utils/index.js";
 import { formatMoney } from "../../shared/utils/index.js";
+import { editOrReply, safeAnswerCallback } from "../../shared/telegram/index.js";
 import { createCategorySchema } from "./categories.types.js";
 import { SessionStore } from "../../shared/session/index.js";
 
@@ -40,7 +41,7 @@ export class CategoriesHandler {
 
   private async handleListCallback(ctx: CustomContext): Promise<void> {
     await this.sendCategoriesList(ctx);
-    await ctx.answerCallbackQuery();
+    await safeAnswerCallback(ctx);
   }
 
   private async sendCategoriesList(ctx: CustomContext): Promise<void> {
@@ -111,7 +112,7 @@ export class CategoriesHandler {
 
     const id = data.split(":")[2];
     if (!id) {
-      await ctx.answerCallbackQuery("❌ Noto'g'ri ma'lumot");
+      await safeAnswerCallback(ctx, "❌ Noto'g'ri ma'lumot");
       return;
     }
 
@@ -126,7 +127,7 @@ export class CategoriesHandler {
       (category.groupName ? `Guruh: ${category.groupName}\n` : "") +
       (category.description ? `📝 ${category.description}\n` : "");
 
-    await ctx.editMessageText(text, {
+    await editOrReply(ctx, text, {
       reply_markup: {
         inline_keyboard: [
           [{ text: "🗑 Arxivlash", callback_data: `category:archive:${category.id}` }],
@@ -134,7 +135,7 @@ export class CategoriesHandler {
         ],
       },
     });
-    await ctx.answerCallbackQuery();
+    await safeAnswerCallback(ctx);
   }
 
   private async handleArchive(ctx: CustomContext): Promise<void> {
@@ -143,12 +144,12 @@ export class CategoriesHandler {
 
     const id = data.split(":")[2];
     if (!id) {
-      await ctx.answerCallbackQuery("❌ Noto'g'ri ma'lumot");
+      await safeAnswerCallback(ctx, "❌ Noto'g'ri ma'lumot");
       return;
     }
 
     await this.categoriesService.archive(ctx.appState.userId, ctx.appState.userRole, id);
-    await ctx.answerCallbackQuery("✅ Kategoriya arxivlandi");
+    await safeAnswerCallback(ctx, "✅ Kategoriya arxivlandi");
     await this.sendCategoriesList(ctx);
   }
 
@@ -176,7 +177,7 @@ export class CategoriesHandler {
 
     createSessions.set(ctx.appState.userId, { type, step: "name" });
 
-    await ctx.answerCallbackQuery();
+    await safeAnswerCallback(ctx);
     await ctx.reply(
       `➕ Yangi ${type === "INCOME" ? "🟢 kirim" : "🔴 chiqim"} kategoriyasi\n\n` +
       "Kategoriya nomini yuboring.\n" +
@@ -190,9 +191,9 @@ export class CategoriesHandler {
     const created = await this.categoriesService.ensureDefaults(ctx.appState.userId);
 
     if (created === 0) {
-      await ctx.answerCallbackQuery("ℹ️ Kategoriyalar allaqachon mavjud");
+      await safeAnswerCallback(ctx, "ℹ️ Kategoriyalar allaqachon mavjud");
     } else {
-      await ctx.answerCallbackQuery(`✅ ${created} ta kategoriya qo'shildi`);
+      await safeAnswerCallback(ctx, `✅ ${created} ta kategoriya qo'shildi`);
     }
 
     await this.sendCategoriesList(ctx);

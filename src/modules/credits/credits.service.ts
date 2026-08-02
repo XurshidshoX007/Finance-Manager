@@ -48,6 +48,10 @@ export class CreditsService {
     }
 
     const startDate = input.startDate ? new Date(input.startDate) : new Date();
+    if (Number.isNaN(startDate.getTime())) {
+      throw new ValidationError("startDate must be a valid date");
+    }
+
     const endDate = new Date(startDate);
     endDate.setMonth(endDate.getMonth() + input.termMonths);
 
@@ -146,33 +150,37 @@ export class CreditsService {
     const amount = toDecimal(input.amount);
     const remainingDebt = toDecimal(credit.remainingDebt.toString());
 
-    if (input.isFull) {
-      await this.creditsRepo.updateRemainingDebt(creditId, "0.00", credit.termMonths);
-      await this.creditsRepo.updateStatus(creditId, "COMPLETED");
-    } else {
-      if (amount.greaterThan(remainingDebt)) {
-        throw new ValidationError("Early payment amount cannot exceed remaining debt");
-      }
-
-      const newRemainingDebt = remainingDebt.minus(amount);
-      await this.creditsRepo.updateRemainingDebt(
-        creditId,
-        newRemainingDebt.toFixed(2),
-        credit.paidMonths,
-      );
+    if (!amount.greaterThan(0)) {
+      throw new ValidationError("Early payment amount must be greater than 0");
     }
 
-    await this.creditsRepo.createEarlyPayment({
+    if (remainingDebt.lessThanOrEqualTo(0)) {
+      throw new ValidationError("This credit has no remaining debt");
+    }
+
+    // To'liq yopish bo'lmasa-da, summa qarzni qoplasa — kreditni yopamiz
+    const closesCredit = input.isFull || amount.greaterThanOrEqualTo(remainingDebt);
+
+    if (!input.isFull && amount.greaterThan(remainingDebt)) {
+      throw new ValidationError("Early payment amount cannot exceed remaining debt");
+    }
+
+    const newRemainingDebt = closesCredit ? "0.00" : remainingDebt.minus(amount).toFixed(2);
+
+    await this.creditsRepo.applyEarlyPayment({
       creditId,
       amount: input.amount,
+      newRemainingDebt,
+      paidMonths: closesCredit ? credit.termMonths : credit.paidMonths,
+      isFull: closesCredit,
       paymentDate: new Date(),
-      isFull: input.isFull,
     });
 
     await this.auditLogService.logUpdate(userId, "CREDIT", creditId, {
       action: "EARLY_PAYMENT",
       amount: input.amount,
-      isFull: input.isFull,
+      isFull: closesCredit,
+      newRemainingDebt,
     });
 
     this.logger.info({ creditId, userId, amount: input.amount }, "Early payment made");
@@ -198,10 +206,13 @@ export class CreditsService {
   async getCreditStats(userId: string, userRole: string) {
     this.requirePermission(userRole, Permission.CREDITS_READ);
 
-    const total = await this.creditsRepo.countByUser(userId);
-    const active = await this.creditsRepo.countByStatus(userId, "ACTIVE");
-    const completed = await this.creditsRepo.countByStatus(userId, "COMPLETED");
-    const totalRemainingDebt = await this.creditsRepo.sumRemainingDebt(userId, "UZS");
+    // Ilgari 4 ta so'rov ketma-ket bajarilardi
+    const [total, active, completed, totalRemainingDebt] = await Promise.all([
+      this.creditsRepo.countByUser(userId),
+      this.creditsRepo.countByStatus(userId, "ACTIVE"),
+      this.creditsRepo.countByStatus(userId, "COMPLETED"),
+      this.creditsRepo.sumRemainingDebt(userId, "UZS"),
+    ]);
 
     return {
       total,

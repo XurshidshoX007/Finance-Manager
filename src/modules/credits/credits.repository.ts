@@ -1,4 +1,4 @@
-import type { PrismaClient } from "@prisma/client";
+import type { PrismaClient, Prisma } from "@prisma/client";
 import type { PaginationInput } from "../../shared/types/index.js";
 import { calculateOffset, createPaginatedResult } from "../../shared/utils/index.js";
 import type { CreditFilterInput } from "./credits.types.js";
@@ -151,6 +151,52 @@ export class CreditsRepository {
   }) {
     return this.prisma.creditEarlyPayment.create({
       data,
+    });
+  }
+
+  /**
+   * Erta to'lovni ATOMIK bajaradi: qarzni yangilash, statusni
+   * o'zgartirish, jadvalni yopish va to'lov yozuvini yaratish —
+   * hammasi bitta tranzaksiyada.
+   *
+   * Ilgari bu amallar alohida-alohida bajarilardi: o'rtada xato
+   * chiqsa, qarz kamayib qolib to'lov yozuvi yaratilmasdi
+   * (yoki aksincha) — ma'lumot buzilardi.
+   */
+  async applyEarlyPayment(data: {
+    creditId: string;
+    amount: string;
+    newRemainingDebt: string;
+    paidMonths: number;
+    isFull: boolean;
+    paymentDate: Date;
+  }) {
+    return this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+      await tx.credit.update({
+        where: { id: data.creditId },
+        data: {
+          remainingDebt: data.newRemainingDebt,
+          paidMonths: data.paidMonths,
+          ...(data.isFull ? { status: "COMPLETED" as const } : {}),
+        },
+      });
+
+      // To'liq yopilganda qolgan jadval qatorlari ham to'langan deb belgilanadi
+      if (data.isFull) {
+        await tx.creditSchedule.updateMany({
+          where: { creditId: data.creditId, isPaid: false },
+          data: { isPaid: true, paidAt: data.paymentDate },
+        });
+      }
+
+      return tx.creditEarlyPayment.create({
+        data: {
+          creditId: data.creditId,
+          amount: data.amount,
+          paymentDate: data.paymentDate,
+          isFull: data.isFull,
+        },
+      });
     });
   }
 

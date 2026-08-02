@@ -8,6 +8,9 @@ import { ForbiddenError, UnauthorizedError } from "../../shared/errors/index.js"
 import { Role, ROLE_PERMISSIONS, type Permission } from "../../shared/types/index.js";
 
 export class AuthService {
+  /** `lastLoginAt` ni shu oraliqdan tez-tez yangilamaymiz. */
+  private static readonly LAST_LOGIN_THROTTLE_MS = 5 * 60 * 1000;
+
   private readonly authRepo: AuthRepository;
   private readonly logger: Logger;
   private readonly adminTelegramIds: bigint[];
@@ -33,20 +36,37 @@ export class AuthService {
         throw new ForbiddenError("Your account has been deactivated. Contact administrator.");
       }
 
-      const profileUpdateData: {
-        firstName: string;
-        lastName?: string;
-        username?: string;
-        languageCode?: string;
-      } = { firstName };
-      if (lastName !== undefined) profileUpdateData.lastName = lastName;
-      if (username !== undefined) profileUpdateData.username = username;
-      if (languageCode !== undefined) profileUpdateData.languageCode = languageCode;
+      // Har bir tugma bosilishida 2 ta UPDATE yuborilardi.
+      // Endi faqat profil haqiqatan o'zgargan bo'lsa yoki
+      // oxirgi kirish 5 daqiqadan eski bo'lsa yoziladi.
+      const profileChanged =
+        existingUser.firstName !== firstName ||
+        (lastName !== undefined && existingUser.lastName !== lastName) ||
+        (username !== undefined && existingUser.username !== username) ||
+        (languageCode !== undefined && existingUser.languageCode !== languageCode);
 
-      await this.authRepo.updateUserProfile(existingUser.id, profileUpdateData);
-      await this.authRepo.updateUserLastLogin(existingUser.id);
+      const lastLoginStale =
+        !existingUser.lastLoginAt ||
+        Date.now() - existingUser.lastLoginAt.getTime() > AuthService.LAST_LOGIN_THROTTLE_MS;
 
-      this.logger.info({ userId: existingUser.id }, "User authenticated");
+      if (profileChanged || lastLoginStale) {
+        const profileUpdateData: {
+          firstName: string;
+          lastName?: string;
+          username?: string;
+          languageCode?: string;
+          lastLoginAt?: Date;
+        } = { firstName };
+        if (lastName !== undefined) profileUpdateData.lastName = lastName;
+        if (username !== undefined) profileUpdateData.username = username;
+        if (languageCode !== undefined) profileUpdateData.languageCode = languageCode;
+        if (lastLoginStale) profileUpdateData.lastLoginAt = new Date();
+
+        // Ikkita alohida UPDATE o'rniga bitta
+        await this.authRepo.updateUserProfile(existingUser.id, profileUpdateData);
+      }
+
+      this.logger.debug({ userId: existingUser.id }, "User authenticated");
 
       return {
         user: {

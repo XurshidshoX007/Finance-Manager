@@ -3,6 +3,7 @@ import type { CustomContext } from "../auth/auth.middleware.js";
 import type { UsersService } from "./users.service.js";
 import { Role } from "../../shared/types/index.js";
 import { createPaginationInput } from "../../shared/utils/index.js";
+import { safeAnswerCallback } from "../../shared/telegram/index.js";
 
 export class UsersHandler {
   private readonly bot: Bot<CustomContext>;
@@ -54,12 +55,12 @@ export class UsersHandler {
     const userId = parts[2];
 
     if (!action || !userId) {
-      await ctx.answerCallbackQuery("❌ Noto'g'ri ma'lumot");
+      await safeAnswerCallback(ctx, "❌ Noto'g'ri ma'lumot");
       return;
     }
 
     if (ctx.appState.userRole !== Role.ADMIN) {
-      await ctx.answerCallbackQuery("❌ Faqat adminlar uchun");
+      await safeAnswerCallback(ctx, "❌ Faqat adminlar uchun");
       return;
     }
 
@@ -67,30 +68,30 @@ export class UsersHandler {
       switch (action) {
         case "role-admin":
           await this.usersService.changeRole(ctx.appState.userId, userId, Role.ADMIN);
-          await ctx.answerCallbackQuery("✅ Rol ADMIN ga o'zgartirildi");
+          await safeAnswerCallback(ctx, "✅ Rol ADMIN ga o'zgartirildi");
           break;
         case "role-manager":
           await this.usersService.changeRole(ctx.appState.userId, userId, Role.MANAGER);
-          await ctx.answerCallbackQuery("✅ Rol MANAGER ga o'zgartirildi");
+          await safeAnswerCallback(ctx, "✅ Rol MANAGER ga o'zgartirildi");
           break;
         case "role-employee":
           await this.usersService.changeRole(ctx.appState.userId, userId, Role.EMPLOYEE);
-          await ctx.answerCallbackQuery("✅ Rol EMPLOYEE ga o'zgartirildi");
+          await safeAnswerCallback(ctx, "✅ Rol EMPLOYEE ga o'zgartirildi");
           break;
         case "toggle-active":
           await this.usersService.toggleActive(ctx.appState.userId, userId, true);
-          await ctx.answerCallbackQuery("✅ Foydalanuvchi faollashtirildi");
+          await safeAnswerCallback(ctx, "✅ Foydalanuvchi faollashtirildi");
           break;
         case "toggle-block":
           await this.usersService.toggleBlocked(ctx.appState.userId, userId, true);
-          await ctx.answerCallbackQuery("✅ Foydalanuvchi bloklandi");
+          await safeAnswerCallback(ctx, "✅ Foydalanuvchi bloklandi");
           break;
         default:
-          await ctx.answerCallbackQuery("❌ Noma'lum amal");
+          await safeAnswerCallback(ctx, "❌ Noma'lum amal");
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : "Xatolik yuz berdi";
-      await ctx.answerCallbackQuery(`❌ ${message}`);
+      await safeAnswerCallback(ctx, `❌ ${message}`);
     }
   }
 }

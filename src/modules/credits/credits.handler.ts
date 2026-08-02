@@ -3,6 +3,7 @@ import type { CustomContext } from "../auth/auth.middleware.js";
 import type { CreditsService } from "./credits.service.js";
 import { createPaginationInput } from "../../shared/utils/index.js";
 import { formatMoney } from "../../shared/utils/index.js";
+import { editOrReply, safeAnswerCallback } from "../../shared/telegram/index.js";
 
 export class CreditsHandler {
   private readonly creditsService: CreditsService;
@@ -25,7 +26,7 @@ export class CreditsHandler {
 
   private async handleListCallback(ctx: CustomContext): Promise<void> {
     await this.sendCreditsList(ctx);
-    await ctx.answerCallbackQuery();
+    await safeAnswerCallback(ctx);
   }
 
   private async sendCreditsList(ctx: CustomContext): Promise<void> {
@@ -80,7 +81,7 @@ export class CreditsHandler {
 
     const id = data.split(":")[2];
     if (!id) {
-      await ctx.answerCallbackQuery("❌ Noto'g'ri ma'lumot");
+      await safeAnswerCallback(ctx, "❌ Noto'g'ri ma'lumot");
       return;
     }
 
@@ -109,10 +110,10 @@ export class CreditsHandler {
     }
     buttons.push([{ text: "🔙 Ortga", callback_data: "credits:list" }]);
 
-    await ctx.editMessageText(text, {
+    await editOrReply(ctx, text, {
       reply_markup: { inline_keyboard: buttons },
     });
-    await ctx.answerCallbackQuery();
+    await safeAnswerCallback(ctx);
   }
 
   private async handleArchive(ctx: CustomContext): Promise<void> {
@@ -121,12 +122,12 @@ export class CreditsHandler {
 
     const id = data.split(":")[2];
     if (!id) {
-      await ctx.answerCallbackQuery("❌ Noto'g'ri ma'lumot");
+      await safeAnswerCallback(ctx, "❌ Noto'g'ri ma'lumot");
       return;
     }
 
     await this.creditsService.archive(ctx.appState.userId, ctx.appState.userRole, id);
-    await ctx.answerCallbackQuery("✅ Kredit arxivlandi");
+    await safeAnswerCallback(ctx, "✅ Kredit arxivlandi");
     await this.sendCreditsList(ctx);
   }
 
@@ -147,6 +148,6 @@ export class CreditsHandler {
         ],
       },
     });
-    await ctx.answerCallbackQuery();
+    await safeAnswerCallback(ctx);
   }
 }

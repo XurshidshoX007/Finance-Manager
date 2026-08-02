@@ -53,7 +53,13 @@ export class AuthRepository {
 
   async updateUserProfile(
     id: string,
-    data: { firstName: string; lastName?: string; username?: string; languageCode?: string },
+    data: {
+      firstName: string;
+      lastName?: string;
+      username?: string;
+      languageCode?: string;
+      lastLoginAt?: Date;
+    },
   ) {
     return this.prisma.user.update({
       where: { id },

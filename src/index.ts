@@ -130,22 +130,26 @@ async function main(): Promise<void> {
 
   const bot = new Bot<CustomContext>(config.BOT_TOKEN);
 
-  const authMiddleware = createAuthMiddleware(authService);
-  bot.use(authMiddleware);
+  const botLogger = getLogger("bot");
 
-  // Set appState defaults
+  // Diqqat: appState AVVAL o'rnatiladi, keyin auth ishlaydi.
+  // Ilgari tartib teskari edi va auth middleware `prisma`/`redis`
+  // o'rniga bo'sh obyekt qo'yib ketardi.
   bot.use(async (ctx, next) => {
     ctx.appState = {
-      userId: ctx.appState?.userId ?? "",
-      userRole: ctx.appState?.userRole ?? Role.EMPLOYEE,
+      userId: "",
+      userRole: Role.EMPLOYEE,
       prisma,
       redis,
-      logger: getLogger("bot"),
+      logger: botLogger,
       authService,
       auditLogService,
     };
     await next();
   });
+
+  const authMiddleware = createAuthMiddleware(authService);
+  bot.use(authMiddleware);
 
   // Register handlers
   const authHandler = new AuthHandler(bot, authService);

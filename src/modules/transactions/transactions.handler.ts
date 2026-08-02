@@ -5,6 +5,7 @@ import type { CategoriesService } from "../categories/categories.service.js";
 import type { SourcesService } from "../sources/sources.service.js";
 import { createPaginationInput } from "../../shared/utils/index.js";
 import { formatMoney } from "../../shared/utils/index.js";
+import { editOrReply, safeAnswerCallback } from "../../shared/telegram/index.js";
 import { SessionStore } from "../../shared/session/index.js";
 
 type TxKind = "INCOME" | "EXPENSE" | "TRANSFER";
@@ -84,7 +85,7 @@ export class TransactionsHandler {
 
   private async handleListCallback(ctx: CustomContext): Promise<void> {
     await this.sendTransactionsList(ctx);
-    await ctx.answerCallbackQuery();
+    await safeAnswerCallback(ctx);
   }
 
   private async sendTransactionsList(ctx: CustomContext): Promise<void> {
@@ -151,7 +152,7 @@ export class TransactionsHandler {
 
     const id = data.split(":")[2];
     if (!id) {
-      await ctx.answerCallbackQuery("❌ Noto'g'ri ma'lumot");
+      await safeAnswerCallback(ctx, "❌ Noto'g'ri ma'lumot");
       return;
     }
 
@@ -177,10 +178,10 @@ export class TransactionsHandler {
     }
     buttons.push([{ text: "🔙 Ortga", callback_data: "transactions:list" }]);
 
-    await ctx.editMessageText(text, {
+    await editOrReply(ctx, text, {
       reply_markup: { inline_keyboard: buttons },
     });
-    await ctx.answerCallbackQuery();
+    await safeAnswerCallback(ctx);
   }
 
   private async handleCancel(ctx: CustomContext): Promise<void> {
@@ -189,7 +190,7 @@ export class TransactionsHandler {
 
     const id = data.split(":")[2];
     if (!id) {
-      await ctx.answerCallbackQuery("❌ Noto'g'ri ma'lumot");
+      await safeAnswerCallback(ctx, "❌ Noto'g'ri ma'lumot");
       return;
     }
 
@@ -197,10 +198,10 @@ export class TransactionsHandler {
       await this.transactionsService.cancel(ctx.appState.userId, ctx.appState.userRole, id, {
         cancelReason: "Cancelled by user",
       });
-      await ctx.answerCallbackQuery("✅ Tranzaksiya bekor qilindi");
+      await safeAnswerCallback(ctx, "✅ Tranzaksiya bekor qilindi");
     } catch (error) {
       const message = error instanceof Error ? error.message : "Xatolik yuz berdi";
-      await ctx.answerCallbackQuery(`❌ ${message}`);
+      await safeAnswerCallback(ctx, `❌ ${message}`);
     }
   }
 
@@ -218,7 +219,7 @@ export class TransactionsHandler {
 
   private async startFlow(ctx: CustomContext, type: TxKind, title: string, example: string): Promise<void> {
     userSessions.set(ctx.appState.userId, { type, step: "amount" });
-    await ctx.answerCallbackQuery().catch(() => undefined);
+    await safeAnswerCallback(ctx);
     await ctx.reply(
       `${title}\n\n` +
       "Miqdorni yuboring:\n" +
@@ -234,7 +235,7 @@ export class TransactionsHandler {
 
   private async handleAbort(ctx: CustomContext): Promise<void> {
     userSessions.delete(ctx.appState.userId);
-    await ctx.answerCallbackQuery("❌ Bekor qilindi");
+    await safeAnswerCallback(ctx, "❌ Bekor qilindi");
     await ctx.reply("❌ Tranzaksiya yaratish bekor qilindi.");
   }
 
@@ -332,7 +333,7 @@ export class TransactionsHandler {
   private async handlePickCategory(ctx: CustomContext): Promise<void> {
     const session = userSessions.get(ctx.appState.userId);
     if (!session) {
-      await ctx.answerCallbackQuery("⏳ Sessiya muddati tugagan, qaytadan boshlang");
+      await safeAnswerCallback(ctx, "⏳ Sessiya muddati tugagan, qaytadan boshlang");
       return;
     }
 
@@ -340,28 +341,28 @@ export class TransactionsHandler {
     session.step = "source";
     userSessions.set(ctx.appState.userId, session);
 
-    await ctx.answerCallbackQuery();
+    await safeAnswerCallback(ctx);
     await this.askSource(ctx, "💰 Qaysi manbadan?", "tx:pick:source");
   }
 
   private async handleSkipCategory(ctx: CustomContext): Promise<void> {
     const session = userSessions.get(ctx.appState.userId);
     if (!session) {
-      await ctx.answerCallbackQuery("⏳ Sessiya muddati tugagan, qaytadan boshlang");
+      await safeAnswerCallback(ctx, "⏳ Sessiya muddati tugagan, qaytadan boshlang");
       return;
     }
 
     session.step = "source";
     userSessions.set(ctx.appState.userId, session);
 
-    await ctx.answerCallbackQuery();
+    await safeAnswerCallback(ctx);
     await this.askSource(ctx, "💰 Qaysi manbadan?", "tx:pick:source");
   }
 
   private async handlePickSource(ctx: CustomContext): Promise<void> {
     const session = userSessions.get(ctx.appState.userId);
     if (!session) {
-      await ctx.answerCallbackQuery("⏳ Sessiya muddati tugagan, qaytadan boshlang");
+      await safeAnswerCallback(ctx, "⏳ Sessiya muddati tugagan, qaytadan boshlang");
       return;
     }
 
@@ -370,31 +371,31 @@ export class TransactionsHandler {
     if (session.type === "TRANSFER") {
       session.step = "target";
       userSessions.set(ctx.appState.userId, session);
-      await ctx.answerCallbackQuery();
+      await safeAnswerCallback(ctx);
       await this.askSource(ctx, "📥 Qaysi manbaga tushadi?", "tx:pick:target");
       return;
     }
 
-    await ctx.answerCallbackQuery();
+    await safeAnswerCallback(ctx);
     await this.finalize(ctx, session);
   }
 
   private async handlePickTarget(ctx: CustomContext): Promise<void> {
     const session = userSessions.get(ctx.appState.userId);
     if (!session) {
-      await ctx.answerCallbackQuery("⏳ Sessiya muddati tugagan, qaytadan boshlang");
+      await safeAnswerCallback(ctx, "⏳ Sessiya muddati tugagan, qaytadan boshlang");
       return;
     }
 
     const targetId = ctx.callbackQuery?.data?.split(":")[3];
 
     if (targetId && targetId === session.sourceId) {
-      await ctx.answerCallbackQuery("❌ Manba va qabul qiluvchi bir xil bo'lishi mumkin emas");
+      await safeAnswerCallback(ctx, "❌ Manba va qabul qiluvchi bir xil bo'lishi mumkin emas");
       return;
     }
 
     session.targetId = targetId;
-    await ctx.answerCallbackQuery();
+    await safeAnswerCallback(ctx);
     await this.finalize(ctx, session);
   }
 
@@ -490,6 +491,6 @@ export class TransactionsHandler {
         ],
       },
     });
-    await ctx.answerCallbackQuery();
+    await safeAnswerCallback(ctx);
   }
 }

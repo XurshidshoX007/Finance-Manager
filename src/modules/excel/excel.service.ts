@@ -33,10 +33,13 @@ export class ExcelService {
   async exportTransactions(userId: string, userRole: string, filters?: Record<string, unknown>): Promise<Buffer> {
     this.requirePermission(userRole, Permission.EXCEL_EXPORT);
 
+    // Diqqat: filtrlar `createdBy` dan KEYIN yoyilmaydi — aks holda
+    // chaqiruvchi `createdBy` ni almashtirib, birovning ma'lumotini
+    // eksport qila olardi.
     const where: Record<string, unknown> = {
+      ...(filters ?? {}),
       createdBy: userId,
       isArchived: false,
-      ...filters,
     };
 
     const transactions = await this.prisma.transaction.findMany({
@@ -240,7 +243,8 @@ export class ExcelService {
     let validRows = 0;
     let invalidRows = 0;
 
-    const maxPreviewRows = Math.min(sheet.rowCount - 1, 20);
+    const dataRowCount = Math.max(0, sheet.rowCount - 1);
+    const maxPreviewRows = Math.min(dataRowCount, 20);
 
     for (let rowNumber = 2; rowNumber <= maxPreviewRows + 1; rowNumber++) {
       const row = sheet.getRow(rowNumber);
@@ -277,7 +281,7 @@ export class ExcelService {
     }
 
     return {
-      totalRows: sheet.rowCount - 1,
+      totalRows: dataRowCount,
       validRows,
       invalidRows,
       preview,
@@ -300,7 +304,26 @@ export class ExcelService {
     let skipped = 0;
     const errors: string[] = [];
 
-    for (let rowNumber = 2; rowNumber <= sheet.rowCount; rowNumber++) {
+    // Cheklov: juda katta fayl serverni qotirib qo'ymasligi uchun
+    const MAX_IMPORT_ROWS = 5000;
+    const lastRow = Math.min(sheet.rowCount, MAX_IMPORT_ROWS + 1);
+
+    if (sheet.rowCount - 1 > MAX_IMPORT_ROWS) {
+      errors.push(`Faqat dastlabki ${MAX_IMPORT_ROWS} qator import qilindi`);
+    }
+
+    const pending: Array<{
+      type: "INCOME" | "EXPENSE";
+      amount: string;
+      currency: "UZS" | "USD" | "EUR" | "RUB" | "GBP" | "CNY";
+      description: string | null;
+      transactionDate: Date;
+      createdBy: string;
+    }> = [];
+
+    const VALID_CURRENCIES = new Set(["UZS", "USD", "EUR", "RUB", "GBP", "CNY"]);
+
+    for (let rowNumber = 2; rowNumber <= lastRow; rowNumber++) {
       const row = sheet.getRow(rowNumber);
       const data: Record<string, string> = {};
 
@@ -328,21 +351,48 @@ export class ExcelService {
         continue;
       }
 
-      try {
-        await this.prisma.transaction.create({
-          data: {
-            type: type as "INCOME" | "EXPENSE",
-            amount: String(amount),
-            currency: (data["currency"] ?? "UZS") as "UZS" | "USD" | "EUR" | "RUB" | "GBP" | "CNY",
-            description: data["description"] ?? null,
-            transactionDate: data["date"] ? new Date(data["date"]) : new Date(),
-            createdBy: userId,
-          },
-        });
-        imported++;
-      } catch (error) {
+      // Sana tekshiruvi: ilgari "Invalid Date" bazaga yozilib ketardi
+      let transactionDate = new Date();
+      if (data["date"]) {
+        const parsed = new Date(data["date"]);
+        if (Number.isNaN(parsed.getTime())) {
+          skipped++;
+          errors.push(`Row ${rowNumber}: Invalid date '${data["date"]}'`);
+          continue;
+        }
+        transactionDate = parsed;
+      }
+
+      const rawCurrency = (data["currency"] ?? "UZS").toUpperCase();
+      if (!VALID_CURRENCIES.has(rawCurrency)) {
         skipped++;
-        errors.push(`Row ${rowNumber}: ${error instanceof Error ? error.message : "Unknown error"}`);
+        errors.push(`Row ${rowNumber}: Invalid currency '${data["currency"]}'`);
+        continue;
+      }
+
+      pending.push({
+        type,
+        amount: amount.toFixed(2),
+        currency: rawCurrency as "UZS" | "USD" | "EUR" | "RUB" | "GBP" | "CNY",
+        description: data["description"] ? String(data["description"]).slice(0, 500) : null,
+        transactionDate,
+        createdBy: userId,
+      });
+    }
+
+    // Ilgari har bir qator uchun alohida `create` chaqirilardi
+    // (1000 qator = 1000 ta so'rov). Endi bo'laklab createMany.
+    const BATCH_SIZE = 500;
+    for (let i = 0; i < pending.length; i += BATCH_SIZE) {
+      const batch = pending.slice(i, i + BATCH_SIZE);
+      try {
+        const result = await this.prisma.transaction.createMany({ data: batch });
+        imported += result.count;
+      } catch (error) {
+        skipped += batch.length;
+        errors.push(
+          `Batch ${i / BATCH_SIZE + 1}: ${error instanceof Error ? error.message : "Unknown error"}`,
+        );
       }
     }
 

@@ -27,7 +27,13 @@ export function createAuthMiddleware(authService: AuthService): MiddlewareFn<Cus
     const telegramUser = ctx.from;
 
     if (!telegramUser) {
-      logger.warn("No telegram user in update");
+      logger.debug({ updateId: ctx.update.update_id }, "Update without a user, skipping");
+      return;
+    }
+
+    // Botlar (shu jumladan o'zimiz) tizimga kiritilmaydi
+    if (telegramUser.is_bot) {
+      logger.debug({ telegramId: telegramUser.id }, "Ignoring update from a bot");
       return;
     }
 
@@ -40,14 +46,16 @@ export function createAuthMiddleware(authService: AuthService): MiddlewareFn<Cus
         telegramUser.language_code,
       );
 
+      // Diqqat: bu yerda `prisma`/`redis` uchun bo'sh obyekt
+      // yaratilmaydi. Ilgari `{} as PrismaClient` yozilardi va agar
+      // tartib buzilsa, kod jim turib `undefined is not a function`
+      // bilan yiqilardi. Endi mavjud appState faqat to'ldiriladi.
       ctx.appState = {
+        ...ctx.appState,
         userId: loginResult.user.id,
         userRole: loginResult.user.role as Role,
-        prisma: ctx.appState?.prisma ?? ({} as PrismaClient),
-        redis: ctx.appState?.redis ?? ({} as RedisClientType),
-        logger: logger,
+        logger,
         authService,
-        auditLogService: ctx.appState?.auditLogService ?? ({} as AuditLogService),
       };
 
       if (loginResult.isFirstLogin) {

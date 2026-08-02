@@ -2,6 +2,7 @@ import type { Bot } from "grammy";
 import type { CustomContext } from "../auth/auth.middleware.js";
 import type { ReportsService } from "./reports.service.js";
 import { formatMoney } from "../../shared/utils/index.js";
+import { safeAnswerCallback } from "../../shared/telegram/index.js";
 
 export class ReportsHandler {
   private readonly bot: Bot<CustomContext>;
@@ -25,7 +26,7 @@ export class ReportsHandler {
 
   private async handleDashboardCallback(ctx: CustomContext): Promise<void> {
     await this.sendDashboard(ctx);
-    await ctx.answerCallbackQuery();
+    await safeAnswerCallback(ctx);
   }
 
   private async sendDashboard(ctx: CustomContext): Promise<void> {
@@ -67,7 +68,7 @@ export class ReportsHandler {
 
     const period = data.split(":")[2];
     if (!period) {
-      await ctx.answerCallbackQuery("❌ Noto'g'ri ma'lumot");
+      await safeAnswerCallback(ctx, "❌ Noto'g'ri ma'lumot");
       return;
     }
 
@@ -112,7 +113,7 @@ export class ReportsHandler {
         ],
       },
     });
-    await ctx.answerCallbackQuery();
+    await safeAnswerCallback(ctx);
   }
 
   private async handleKpi(ctx: CustomContext): Promise<void> {
@@ -133,6 +134,6 @@ export class ReportsHandler {
         ],
       },
     });
-    await ctx.answerCallbackQuery();
+    await safeAnswerCallback(ctx);
   }
 }
