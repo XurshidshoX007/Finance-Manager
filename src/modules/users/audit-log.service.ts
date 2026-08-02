@@ -23,27 +23,57 @@ export class AuditLogService {
     }
   }
 
-  async logCreate(userId: string, entity: string, entityId: string, details?: Record<string, unknown>): Promise<void> {
+  async logCreate(
+    userId: string,
+    entity: string,
+    entityId: string,
+    details?: Record<string, unknown>,
+  ): Promise<void> {
     await this.log({ userId, action: "CREATE", entity, entityId, details });
   }
 
-  async logUpdate(userId: string, entity: string, entityId: string, details?: Record<string, unknown>): Promise<void> {
+  async logUpdate(
+    userId: string,
+    entity: string,
+    entityId: string,
+    details?: Record<string, unknown>,
+  ): Promise<void> {
     await this.log({ userId, action: "UPDATE", entity, entityId, details });
   }
 
-  async logDelete(userId: string, entity: string, entityId: string, details?: Record<string, unknown>): Promise<void> {
+  async logDelete(
+    userId: string,
+    entity: string,
+    entityId: string,
+    details?: Record<string, unknown>,
+  ): Promise<void> {
     await this.log({ userId, action: "DELETE", entity, entityId, details });
   }
 
-  async logArchive(userId: string, entity: string, entityId: string, details?: Record<string, unknown>): Promise<void> {
+  async logArchive(
+    userId: string,
+    entity: string,
+    entityId: string,
+    details?: Record<string, unknown>,
+  ): Promise<void> {
     await this.log({ userId, action: "ARCHIVE", entity, entityId, details });
   }
 
-  async logRestore(userId: string, entity: string, entityId: string, details?: Record<string, unknown>): Promise<void> {
+  async logRestore(
+    userId: string,
+    entity: string,
+    entityId: string,
+    details?: Record<string, unknown>,
+  ): Promise<void> {
     await this.log({ userId, action: "RESTORE", entity, entityId, details });
   }
 
-  async logCancel(userId: string, entity: string, entityId: string, details?: Record<string, unknown>): Promise<void> {
+  async logCancel(
+    userId: string,
+    entity: string,
+    entityId: string,
+    details?: Record<string, unknown>,
+  ): Promise<void> {
     await this.log({ userId, action: "CANCEL", entity, entityId, details });
   }
 
@@ -51,11 +81,19 @@ export class AuditLogService {
     await this.log({ userId, action: "LOGIN", entity: "USER", entityId: userId, details });
   }
 
-  async logExport(userId: string, entity: string, details?: Record<string, unknown>): Promise<void> {
+  async logExport(
+    userId: string,
+    entity: string,
+    details?: Record<string, unknown>,
+  ): Promise<void> {
     await this.log({ userId, action: "EXPORT", entity, details });
   }
 
-  async logImport(userId: string, entity: string, details?: Record<string, unknown>): Promise<void> {
+  async logImport(
+    userId: string,
+    entity: string,
+    details?: Record<string, unknown>,
+  ): Promise<void> {
     await this.log({ userId, action: "IMPORT", entity, details });
   }
 
@@ -67,7 +105,10 @@ export class AuditLogService {
     return this.auditLogRepo.findByEntity(entity, entityId, pagination);
   }
 
-  async getAllLogs(pagination: PaginationInput, filters?: { userId?: string; entity?: string; action?: string }) {
+  async getAllLogs(
+    pagination: PaginationInput,
+    filters?: { userId?: string; entity?: string; action?: string },
+  ) {
     return this.auditLogRepo.findAll(pagination, filters);
   }
 }

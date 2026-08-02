@@ -61,10 +61,10 @@ export function createAuthMiddleware(authService: AuthService): MiddlewareFn<Cus
       if (loginResult.isFirstLogin) {
         await ctx.reply(
           `👋 Salom, ${telegramUser.first_name}!\n\n` +
-          `Siz Finance Manager tizimiga muvaffaqiyatli ro'yxatdan o'tdingiz.\n` +
-          `Sizning rolingiz: ${loginResult.user.role}\n\n` +
-          `📊 /menu - Bosh menyu\n` +
-          `❓ /help - Yordam`,
+            `Siz Finance Manager tizimiga muvaffaqiyatli ro'yxatdan o'tdingiz.\n` +
+            `Sizning rolingiz: ${loginResult.user.role}\n\n` +
+            `📊 /menu - Bosh menyu\n` +
+            `❓ /help - Yordam`,
         );
       }
     } catch (error) {

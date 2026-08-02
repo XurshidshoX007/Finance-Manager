@@ -33,13 +33,8 @@ export function calculateAnnuitySchedule(
   if (monthlyRate.isZero()) {
     monthlyPayment = principal.div(termMonths);
   } else {
-    const factor = monthlyRate
-      .plus(1)
-      .pow(termMonths);
-    monthlyPayment = principal
-      .times(monthlyRate)
-      .times(factor)
-      .div(factor.minus(1));
+    const factor = monthlyRate.plus(1).pow(termMonths);
+    monthlyPayment = principal.times(monthlyRate).times(factor).div(factor.minus(1));
   }
 
   monthlyPayment = monthlyPayment.toDecimalPlaces(2);

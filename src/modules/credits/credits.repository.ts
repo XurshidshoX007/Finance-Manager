@@ -118,15 +118,17 @@ export class CreditsRepository {
     });
   }
 
-  async createSchedule(schedule: Array<{
-    creditId: string;
-    monthNumber: number;
-    paymentDate: Date;
-    principalAmount: string;
-    interestAmount: string;
-    totalPayment: string;
-    remainingDebt: string;
-  }>) {
+  async createSchedule(
+    schedule: Array<{
+      creditId: string;
+      monthNumber: number;
+      paymentDate: Date;
+      principalAmount: string;
+      interestAmount: string;
+      totalPayment: string;
+      remainingDebt: string;
+    }>,
+  ) {
     return this.prisma.creditSchedule.createMany({
       data: schedule,
     });
@@ -218,7 +220,11 @@ export class CreditsRepository {
 
   async countByStatus(userId: string, status: string): Promise<number> {
     return this.prisma.credit.count({
-      where: { createdBy: userId, status: status as "ACTIVE" | "COMPLETED" | "CANCELLED", isArchived: false },
+      where: {
+        createdBy: userId,
+        status: status as "ACTIVE" | "COMPLETED" | "CANCELLED",
+        isArchived: false,
+      },
     });
   }
 

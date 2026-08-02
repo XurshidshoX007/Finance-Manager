@@ -1,7 +1,12 @@
 import type { CategoriesRepository } from "./categories.repository.js";
 import type { AuditLogService } from "../users/audit-log.service.js";
-import type { CreateCategoryInput, UpdateCategoryInput, CategoryFilterInput, CreateCategoryGroupInput } from "./categories.types.js";
-import type { PaginationInput, PaginatedResult , Permission } from "../../shared/types/index.js";
+import type {
+  CreateCategoryInput,
+  UpdateCategoryInput,
+  CategoryFilterInput,
+  CreateCategoryGroupInput,
+} from "./categories.types.js";
+import type { PaginationInput, PaginatedResult, Permission } from "../../shared/types/index.js";
 import { ROLE_PERMISSIONS } from "../../shared/types/index.js";
 import { ForbiddenError, NotFoundError, ConflictError } from "../../shared/errors/index.js";
 import { getLogger } from "../../shared/logger/index.js";
@@ -41,12 +46,18 @@ export class CategoriesService {
     this.auditLogService = auditLogService;
   }
 
-  async create(userId: string, userRole: string, input: CreateCategoryInput): Promise<CategoryWithStats> {
+  async create(
+    userId: string,
+    userRole: string,
+    input: CreateCategoryInput,
+  ): Promise<CategoryWithStats> {
     this.requirePermission(userRole, "CATEGORIES_CREATE");
 
     const existing = await this.categoriesRepo.findByNameAndUser(input.name, input.type, userId);
     if (existing) {
-      throw new ConflictError(`Category with name '${input.name}' and type '${input.type}' already exists`);
+      throw new ConflictError(
+        `Category with name '${input.name}' and type '${input.type}' already exists`,
+      );
     }
 
     if (input.groupId) {
@@ -80,7 +91,11 @@ export class CategoriesService {
     };
   }
 
-  async createGroup(userId: string, userRole: string, input: CreateCategoryGroupInput): Promise<CategoryGroupWithCategories> {
+  async createGroup(
+    userId: string,
+    userRole: string,
+    input: CreateCategoryGroupInput,
+  ): Promise<CategoryGroupWithCategories> {
     this.requirePermission(userRole, "CATEGORIES_CREATE");
 
     const group = await this.categoriesRepo.createGroup(input, userId);
@@ -170,9 +185,10 @@ export class CategoriesService {
 
     await this.ensureDefaults(userId);
 
-    const categories = (await this.categoriesRepo.findActiveByUser(userId, type)) as unknown as Array<
-      Record<string, unknown>
-    >;
+    const categories = (await this.categoriesRepo.findActiveByUser(
+      userId,
+      type,
+    )) as unknown as Array<Record<string, unknown>>;
 
     const statsMap = await this.categoriesRepo.calculateStatsForCategories(
       categories.map((cat) => cat.id as string),
@@ -203,7 +219,12 @@ export class CategoriesService {
     }));
   }
 
-  async update(userId: string, userRole: string, id: string, input: UpdateCategoryInput): Promise<CategoryWithStats> {
+  async update(
+    userId: string,
+    userRole: string,
+    id: string,
+    input: UpdateCategoryInput,
+  ): Promise<CategoryWithStats> {
     this.requirePermission(userRole, "CATEGORIES_UPDATE");
 
     const category = await this.categoriesRepo.findByIdAndUser(id, userId);
@@ -212,7 +233,11 @@ export class CategoriesService {
     }
 
     if (input.name && input.name !== category.name) {
-      const existing = await this.categoriesRepo.findByNameAndUser(input.name, category.type, userId);
+      const existing = await this.categoriesRepo.findByNameAndUser(
+        input.name,
+        category.type,
+        userId,
+      );
       if (existing) {
         throw new ConflictError(`Category with name '${input.name}' already exists`);
       }
@@ -277,7 +302,10 @@ export class CategoriesService {
     this.logger.info({ categoryId: id, userId }, "Category restored");
   }
 
-  private mapCategoryWithStats(category: Record<string, unknown>, stats: { total: number; count: number }): CategoryWithStats {
+  private mapCategoryWithStats(
+    category: Record<string, unknown>,
+    stats: { total: number; count: number },
+  ): CategoryWithStats {
     const group = category.group as Record<string, unknown> | null;
     return {
       id: category.id as string,

@@ -43,28 +43,48 @@ export class NotificationsService {
 
   async getUnread(userId: string): Promise<NotificationItem[]> {
     const notifications = await this.notificationsRepo.findUnreadByUser(userId);
-    return notifications.map((n: { id: string; type: string; title: string; message: string; isRead: boolean; isSent: boolean; createdAt: Date }) => ({
-      id: n.id,
-      type: n.type,
-      title: n.title,
-      message: n.message,
-      isRead: n.isRead,
-      isSent: n.isSent,
-      createdAt: n.createdAt,
-    }));
+    return notifications.map(
+      (n: {
+        id: string;
+        type: string;
+        title: string;
+        message: string;
+        isRead: boolean;
+        isSent: boolean;
+        createdAt: Date;
+      }) => ({
+        id: n.id,
+        type: n.type,
+        title: n.title,
+        message: n.message,
+        isRead: n.isRead,
+        isSent: n.isSent,
+        createdAt: n.createdAt,
+      }),
+    );
   }
 
   async getAll(userId: string, limit?: number): Promise<NotificationItem[]> {
     const notifications = await this.notificationsRepo.findByUser(userId, limit);
-    return notifications.map((n: { id: string; type: string; title: string; message: string; isRead: boolean; isSent: boolean; createdAt: Date }) => ({
-      id: n.id,
-      type: n.type,
-      title: n.title,
-      message: n.message,
-      isRead: n.isRead,
-      isSent: n.isSent,
-      createdAt: n.createdAt,
-    }));
+    return notifications.map(
+      (n: {
+        id: string;
+        type: string;
+        title: string;
+        message: string;
+        isRead: boolean;
+        isSent: boolean;
+        createdAt: Date;
+      }) => ({
+        id: n.id,
+        type: n.type,
+        title: n.title,
+        message: n.message,
+        isRead: n.isRead,
+        isSent: n.isSent,
+        createdAt: n.createdAt,
+      }),
+    );
   }
 
   async markAsRead(id: string): Promise<void> {
@@ -83,23 +103,32 @@ export class NotificationsService {
     return this.notificationsRepo.countUnreadByUser(userId);
   }
 
-  async getCreditReminders(): Promise<Array<{
-    scheduleId: string;
-    creditName: string;
-    paymentDate: Date;
-    totalPayment: string;
-    userId: string;
-    telegramId: bigint;
-  }>> {
+  async getCreditReminders(): Promise<
+    Array<{
+      scheduleId: string;
+      creditName: string;
+      paymentDate: Date;
+      totalPayment: string;
+      userId: string;
+      telegramId: bigint;
+    }>
+  > {
     const schedules = await this.notificationsRepo.findPendingCreditReminders();
 
-    return schedules.map((s: { id: string; paymentDate: Date; totalPayment: unknown; credit: { name: string; userId: string; user: { telegramId: bigint } } }) => ({
-      scheduleId: s.id,
-      creditName: s.credit.name,
-      paymentDate: s.paymentDate,
-      totalPayment: String(s.totalPayment),
-      userId: s.credit.userId,
-      telegramId: s.credit.user.telegramId,
-    }));
+    return schedules.map(
+      (s: {
+        id: string;
+        paymentDate: Date;
+        totalPayment: unknown;
+        credit: { name: string; userId: string; user: { telegramId: bigint } };
+      }) => ({
+        scheduleId: s.id,
+        creditName: s.credit.name,
+        paymentDate: s.paymentDate,
+        totalPayment: String(s.totalPayment),
+        userId: s.credit.userId,
+        telegramId: s.credit.user.telegramId,
+      }),
+    );
   }
 }

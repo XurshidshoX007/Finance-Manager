@@ -70,7 +70,10 @@ export class AuditLogRepository {
     return createPaginatedResult(logs, total, pagination);
   }
 
-  async findAll(pagination: PaginationInput, filters?: { userId?: string; entity?: string; action?: string }) {
+  async findAll(
+    pagination: PaginationInput,
+    filters?: { userId?: string; entity?: string; action?: string },
+  ) {
     const where: Record<string, unknown> = {};
 
     if (filters?.userId) {

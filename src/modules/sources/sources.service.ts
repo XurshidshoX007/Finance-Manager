@@ -1,7 +1,7 @@
 import type { SourcesRepository } from "./sources.repository.js";
 import type { AuditLogService } from "../users/audit-log.service.js";
 import type { CreateSourceInput, UpdateSourceInput, SourceFilterInput } from "./sources.types.js";
-import type { PaginationInput, PaginatedResult , Permission } from "../../shared/types/index.js";
+import type { PaginationInput, PaginatedResult, Permission } from "../../shared/types/index.js";
 import { ROLE_PERMISSIONS } from "../../shared/types/index.js";
 import { ForbiddenError, NotFoundError, ConflictError } from "../../shared/errors/index.js";
 import { getLogger } from "../../shared/logger/index.js";
@@ -29,7 +29,11 @@ export class SourcesService {
     this.auditLogService = auditLogService;
   }
 
-  async create(userId: string, userRole: string, input: CreateSourceInput): Promise<SourceWithBalance> {
+  async create(
+    userId: string,
+    userRole: string,
+    input: CreateSourceInput,
+  ): Promise<SourceWithBalance> {
     this.requirePermission(userRole, "SOURCES_CREATE");
 
     const existing = await this.sourcesRepo.findByNameAndUser(input.name, userId);
@@ -90,7 +94,10 @@ export class SourcesService {
 
     return {
       data: rows.map((src) =>
-        this.mapSourceWithBalance(src, balances.get(src.id as string) ?? { income: 0, expense: 0, net: 0 }),
+        this.mapSourceWithBalance(
+          src,
+          balances.get(src.id as string) ?? { income: 0, expense: 0, net: 0 },
+        ),
       ),
       pagination: result.pagination,
     };
@@ -108,11 +115,19 @@ export class SourcesService {
     );
 
     return sources.map((src) =>
-      this.mapSourceWithBalance(src, balances.get(src.id as string) ?? { income: 0, expense: 0, net: 0 }),
+      this.mapSourceWithBalance(
+        src,
+        balances.get(src.id as string) ?? { income: 0, expense: 0, net: 0 },
+      ),
     );
   }
 
-  async update(userId: string, userRole: string, id: string, input: UpdateSourceInput): Promise<SourceWithBalance> {
+  async update(
+    userId: string,
+    userRole: string,
+    id: string,
+    input: UpdateSourceInput,
+  ): Promise<SourceWithBalance> {
     this.requirePermission(userRole, "SOURCES_UPDATE");
 
     const source = await this.sourcesRepo.findByIdAndUser(id, userId);
@@ -174,7 +189,10 @@ export class SourcesService {
     this.logger.info({ sourceId: id, userId }, "Source restored");
   }
 
-  private mapSourceWithBalance(source: Record<string, unknown>, balance: { income: number; expense: number; net: number }): SourceWithBalance {
+  private mapSourceWithBalance(
+    source: Record<string, unknown>,
+    balance: { income: number; expense: number; net: number },
+  ): SourceWithBalance {
     return {
       id: source.id as string,
       name: source.name as string,

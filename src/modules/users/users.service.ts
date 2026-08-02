@@ -107,7 +107,11 @@ export class UsersService {
     this.logger.info({ requesterId, targetUserId, isActive }, "User active status toggled");
   }
 
-  async toggleBlocked(requesterId: string, targetUserId: string, isBlocked: boolean): Promise<void> {
+  async toggleBlocked(
+    requesterId: string,
+    targetUserId: string,
+    isBlocked: boolean,
+  ): Promise<void> {
     const requester = await this.usersRepo.findById(requesterId);
     if (!requester || requester.role !== Role.ADMIN) {
       throw new ForbiddenError("Only admins can block/unblock users");

@@ -98,7 +98,11 @@ async function main(): Promise<void> {
   const creditsService = new CreditsService(creditsRepository, auditLogService);
 
   // Reports
-  const reportsService = new ReportsService(transactionsRepository, creditsRepository, auditLogService);
+  const reportsService = new ReportsService(
+    transactionsRepository,
+    creditsRepository,
+    auditLogService,
+  );
 
   // PDF
   const pdfService = new PdfService(prisma, auditLogService);
@@ -191,7 +195,9 @@ async function main(): Promise<void> {
       "Bot handler error",
     );
 
-    void ctx?.reply?.("❌ Kutilmagan xatolik yuz berdi. Qaytadan urinib ko'ring.").catch(() => undefined);
+    void ctx
+      ?.reply?.("❌ Kutilmagan xatolik yuz berdi. Qaytadan urinib ko'ring.")
+      .catch(() => undefined);
   });
 
   // Mini App faqat HTTPS orqali ochiladi (Telegram talabi)
@@ -209,7 +215,7 @@ async function main(): Promise<void> {
     const firstName = ctx.from?.first_name ?? "Foydalanuvchi";
     await ctx.editMessageText(
       `📊 Finance Manager - Bosh menyu\n\n` +
-      `Salom, ${firstName}! Quyidagi bo'limlardan birini tanlang:`,
+        `Salom, ${firstName}! Quyidagi bo'limlardan birini tanlang:`,
       {
         reply_markup: {
           inline_keyboard: [
@@ -221,12 +227,8 @@ async function main(): Promise<void> {
               { text: "💵 Tranzaksiyalar", callback_data: "transactions:list" },
               { text: "🏦 Kreditlar", callback_data: "credits:list" },
             ],
-            [
-              { text: "📈 Hisobotlar", callback_data: "reports:dashboard" },
-            ],
-            ...(miniAppUrl
-              ? [[{ text: "📱 Mini App", web_app: { url: miniAppUrl } }]]
-              : []),
+            [{ text: "📈 Hisobotlar", callback_data: "reports:dashboard" }],
+            ...(miniAppUrl ? [[{ text: "📱 Mini App", web_app: { url: miniAppUrl } }]] : []),
           ],
         },
       },
@@ -279,7 +281,10 @@ async function main(): Promise<void> {
     limit: 300,
     standardHeaders: "draft-7",
     legacyHeaders: false,
-    message: { success: false, error: { code: "RATE_LIMIT_EXCEEDED", message: "Too many requests" } },
+    message: {
+      success: false,
+      error: { code: "RATE_LIMIT_EXCEEDED", message: "Too many requests" },
+    },
   });
   app.use("/api", apiLimiter);
 
@@ -289,7 +294,10 @@ async function main(): Promise<void> {
     limit: 20,
     standardHeaders: "draft-7",
     legacyHeaders: false,
-    message: { success: false, error: { code: "RATE_LIMIT_EXCEEDED", message: "Too many export requests" } },
+    message: {
+      success: false,
+      error: { code: "RATE_LIMIT_EXCEEDED", message: "Too many export requests" },
+    },
   });
   app.use("/api/v1/excel", heavyLimiter);
   app.use("/api/v1/reports/pdf", heavyLimiter);
@@ -368,15 +376,17 @@ async function main(): Promise<void> {
     logger.info("Starting in polling mode");
     // bot.start() polling tugaguncha "resolve" bo'lmaydi, shuning uchun
     // uni kutmaymiz — lekin xatolarni yutib yubormaymiz.
-    void bot.start({
-      drop_pending_updates: true,
-      onStart: (info) => {
-        logger.info({ username: info.username }, "Bot started");
-      },
-    }).catch((error) => {
-      logger.fatal({ error }, "Bot polling stopped unexpectedly");
-      process.exit(1);
-    });
+    void bot
+      .start({
+        drop_pending_updates: true,
+        onStart: (info) => {
+          logger.info({ username: info.username }, "Bot started");
+        },
+      })
+      .catch((error) => {
+        logger.fatal({ error }, "Bot polling stopped unexpectedly");
+        process.exit(1);
+      });
   }
 
   // ============================================
@@ -391,7 +401,11 @@ async function main(): Promise<void> {
   // BULLMQ WORKER
   // ============================================
 
-  const notificationWorker = new NotificationWorker(bot, notificationsService, transactionsRepository);
+  const notificationWorker = new NotificationWorker(
+    bot,
+    notificationsService,
+    transactionsRepository,
+  );
 
   const worker = queueService.createWorker(async (job) => {
     const data = job.data;
@@ -406,10 +420,10 @@ async function main(): Promise<void> {
         await bot.api.sendMessage(
           data.telegramId,
           `🏦 Kredit to'lovi eslatmasi\n\n` +
-          `Kredit: ${data.creditName}\n` +
-          `Miqdor: ${data.amount}\n` +
-          `Sana: ${new Date(data.paymentDate).toLocaleDateString("uz-UZ")}\n\n` +
-          `Iltimos, o'z vaqtida to'lovni amalga oshiring.`,
+            `Kredit: ${data.creditName}\n` +
+            `Miqdor: ${data.amount}\n` +
+            `Sana: ${new Date(data.paymentDate).toLocaleDateString("uz-UZ")}\n\n` +
+            `Iltimos, o'z vaqtida to'lovni amalga oshiring.`,
         );
         break;
       }

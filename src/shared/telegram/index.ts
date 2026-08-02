@@ -49,7 +49,10 @@ export async function editOrReply(
       logger().warn({ error }, "editMessageText failed, falling back to reply");
     } else {
       // Kontent o'zgarmagan bo'lsa qayta yuborishning hojati yo'q
-      if (error instanceof GrammyError && error.description.toLowerCase().includes("not modified")) {
+      if (
+        error instanceof GrammyError &&
+        error.description.toLowerCase().includes("not modified")
+      ) {
         return;
       }
     }

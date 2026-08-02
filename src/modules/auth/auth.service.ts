@@ -22,7 +22,13 @@ export class AuthService {
     this.adminTelegramIds = parseAdminIds(config.ADMIN_TELEGRAM_IDS);
   }
 
-  async authenticate(telegramId: bigint, firstName: string, lastName?: string, username?: string, languageCode?: string): Promise<LoginResponse> {
+  async authenticate(
+    telegramId: bigint,
+    firstName: string,
+    lastName?: string,
+    username?: string,
+    languageCode?: string,
+  ): Promise<LoginResponse> {
     this.logger.info({ telegramId: telegramId.toString() }, "Authenticating user");
 
     const existingUser = await this.authRepo.findUserByTelegramId(telegramId);
@@ -148,13 +154,14 @@ export class AuthService {
     }
 
     await this.authRepo.updateUserRole(targetUserId, newRole);
-    this.logger.info(
-      { requesterId, targetUserId, newRole },
-      "User role changed",
-    );
+    this.logger.info({ requesterId, targetUserId, newRole }, "User role changed");
   }
 
-  async toggleUserActive(requesterId: string, targetUserId: string, isActive: boolean): Promise<void> {
+  async toggleUserActive(
+    requesterId: string,
+    targetUserId: string,
+    isActive: boolean,
+  ): Promise<void> {
     const requester = await this.authRepo.findUserById(requesterId);
     if (!requester || requester.role !== Role.ADMIN) {
       throw new ForbiddenError("Only admins can toggle user active status");
@@ -165,13 +172,14 @@ export class AuthService {
     }
 
     await this.authRepo.setUserActive(targetUserId, isActive);
-    this.logger.info(
-      { requesterId, targetUserId, isActive },
-      "User active status toggled",
-    );
+    this.logger.info({ requesterId, targetUserId, isActive }, "User active status toggled");
   }
 
-  async toggleUserBlocked(requesterId: string, targetUserId: string, isBlocked: boolean): Promise<void> {
+  async toggleUserBlocked(
+    requesterId: string,
+    targetUserId: string,
+    isBlocked: boolean,
+  ): Promise<void> {
     const requester = await this.authRepo.findUserById(requesterId);
     if (!requester || requester.role !== Role.ADMIN) {
       throw new ForbiddenError("Only admins can block/unblock users");
@@ -182,9 +190,6 @@ export class AuthService {
     }
 
     await this.authRepo.setUserBlocked(targetUserId, isBlocked);
-    this.logger.info(
-      { requesterId, targetUserId, isBlocked },
-      "User blocked status toggled",
-    );
+    this.logger.info({ requesterId, targetUserId, isBlocked }, "User blocked status toggled");
   }
 }

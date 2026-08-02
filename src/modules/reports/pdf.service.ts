@@ -37,7 +37,10 @@ export class PdfService {
     // Header
     doc.fontSize(24).fillColor("#1a237e").text(title, { align: "center" });
     doc.moveDown(0.5);
-    doc.fontSize(10).fillColor("#666666").text(`Sana: ${dateStr} | Valyuta: ${report.currency}`, { align: "center" });
+    doc
+      .fontSize(10)
+      .fillColor("#666666")
+      .text(`Sana: ${dateStr} | Valyuta: ${report.currency}`, { align: "center" });
     doc.moveDown(1.5);
 
     // Divider
@@ -54,18 +57,39 @@ export class PdfService {
 
     // Income box
     doc.rect(50, summaryY, boxWidth, boxHeight).fillColor("#e8f5e9").fill();
-    doc.fontSize(9).fillColor("#2e7d32").text("KIRIM", 60, summaryY + 10);
-    doc.fontSize(16).fillColor("#1b5e20").text(formatMoney(report.income, report.currency), 60, summaryY + 30);
+    doc
+      .fontSize(9)
+      .fillColor("#2e7d32")
+      .text("KIRIM", 60, summaryY + 10);
+    doc
+      .fontSize(16)
+      .fillColor("#1b5e20")
+      .text(formatMoney(report.income, report.currency), 60, summaryY + 30);
 
     // Expense box
     doc.rect(210, summaryY, boxWidth, boxHeight).fillColor("#ffebee").fill();
-    doc.fontSize(9).fillColor("#c62828").text("CHIQIM", 220, summaryY + 10);
-    doc.fontSize(16).fillColor("#b71c1c").text(formatMoney(report.expense, report.currency), 220, summaryY + 30);
+    doc
+      .fontSize(9)
+      .fillColor("#c62828")
+      .text("CHIQIM", 220, summaryY + 10);
+    doc
+      .fontSize(16)
+      .fillColor("#b71c1c")
+      .text(formatMoney(report.expense, report.currency), 220, summaryY + 30);
 
     // Net box
-    doc.rect(370, summaryY, boxWidth, boxHeight).fillColor(report.net >= 0 ? "#e3f2fd" : "#fff3e0").fill();
-    doc.fontSize(9).fillColor(report.net >= 0 ? "#1565c0" : "#e65100").text("NET", 380, summaryY + 10);
-    doc.fontSize(16).fillColor(report.net >= 0 ? "#0d47a1" : "#bf360c").text(formatMoney(report.net, report.currency), 380, summaryY + 30);
+    doc
+      .rect(370, summaryY, boxWidth, boxHeight)
+      .fillColor(report.net >= 0 ? "#e3f2fd" : "#fff3e0")
+      .fill();
+    doc
+      .fontSize(9)
+      .fillColor(report.net >= 0 ? "#1565c0" : "#e65100")
+      .text("NET", 380, summaryY + 10);
+    doc
+      .fontSize(16)
+      .fillColor(report.net >= 0 ? "#0d47a1" : "#bf360c")
+      .text(formatMoney(report.net, report.currency), 380, summaryY + 30);
 
     doc.y = summaryY + boxHeight + 30;
 
@@ -77,10 +101,18 @@ export class PdfService {
       for (const cat of report.topCategories.slice(0, 10)) {
         const barWidth = Math.max(10, (cat.percentage / 100) * 400);
 
-        doc.fontSize(10).fillColor("#333333").text(`${cat.emoji} ${cat.name}`, 50, doc.y, { continued: true });
-        doc.fillColor("#666666").text(` — ${formatMoney(cat.total, report.currency)} (${cat.percentage.toFixed(1)}%)`);
+        doc
+          .fontSize(10)
+          .fillColor("#333333")
+          .text(`${cat.emoji} ${cat.name}`, 50, doc.y, { continued: true });
+        doc
+          .fillColor("#666666")
+          .text(` — ${formatMoney(cat.total, report.currency)} (${cat.percentage.toFixed(1)}%)`);
 
-        doc.rect(50, doc.y + 2, barWidth, 8).fillColor("#1a237e").fill();
+        doc
+          .rect(50, doc.y + 2, barWidth, 8)
+          .fillColor("#1a237e")
+          .fill();
         doc.moveDown(0.8);
       }
       doc.moveDown(1);
@@ -94,10 +126,18 @@ export class PdfService {
       for (const src of report.topSources.slice(0, 10)) {
         const barWidth = Math.max(10, (src.percentage / 100) * 400);
 
-        doc.fontSize(10).fillColor("#333333").text(`${src.emoji} ${src.name}`, 50, doc.y, { continued: true });
-        doc.fillColor("#666666").text(` — ${formatMoney(src.total, report.currency)} (${src.percentage.toFixed(1)}%)`);
+        doc
+          .fontSize(10)
+          .fillColor("#333333")
+          .text(`${src.emoji} ${src.name}`, 50, doc.y, { continued: true });
+        doc
+          .fillColor("#666666")
+          .text(` — ${formatMoney(src.total, report.currency)} (${src.percentage.toFixed(1)}%)`);
 
-        doc.rect(50, doc.y + 2, barWidth, 8).fillColor("#0d47a1").fill();
+        doc
+          .rect(50, doc.y + 2, barWidth, 8)
+          .fillColor("#0d47a1")
+          .fill();
         doc.moveDown(0.8);
       }
     }
@@ -106,7 +146,10 @@ export class PdfService {
     doc.moveDown(3);
     doc.moveTo(50, doc.y).lineTo(545, doc.y).strokeColor("#cccccc").lineWidth(0.5).stroke();
     doc.moveDown(0.5);
-    doc.fontSize(8).fillColor("#999999").text("Finance Manager — Avtomatik hisobot", { align: "center" });
+    doc
+      .fontSize(8)
+      .fillColor("#999999")
+      .text("Finance Manager — Avtomatik hisobot", { align: "center" });
 
     doc.end();
 
@@ -151,7 +194,10 @@ export class PdfService {
     doc.rect(50, tableTop, 750, 25).fillColor("#1a237e").fill();
     headers.forEach((header, i) => {
       const width = colWidths[i] ?? 100;
-      doc.fontSize(9).fillColor("#ffffff").text(header, x + 5, tableTop + 7, { width });
+      doc
+        .fontSize(9)
+        .fillColor("#ffffff")
+        .text(header, x + 5, tableTop + 7, { width });
       x += width;
     });
 
@@ -164,11 +210,15 @@ export class PdfService {
       }
 
       if (i % 2 === 0) {
-        doc.rect(50, rowY - 3, 750, 22).fillColor("#f5f5f5").fill();
+        doc
+          .rect(50, rowY - 3, 750, 22)
+          .fillColor("#f5f5f5")
+          .fill();
       }
 
       x = 50;
-      const typeLabel = tx.type === "INCOME" ? "Kirim" : tx.type === "EXPENSE" ? "Chiqim" : "O'tkazma";
+      const typeLabel =
+        tx.type === "INCOME" ? "Kirim" : tx.type === "EXPENSE" ? "Chiqim" : "O'tkazma";
       const rowData = [
         tx.transactionDate.toLocaleDateString("uz-UZ"),
         typeLabel,
@@ -180,7 +230,10 @@ export class PdfService {
 
       rowData.forEach((cell, j) => {
         const width = colWidths[j] ?? 100;
-        doc.fontSize(8).fillColor(tx.isCancelled ? "#999999" : "#333333").text(cell, x + 5, rowY, { width });
+        doc
+          .fontSize(8)
+          .fillColor(tx.isCancelled ? "#999999" : "#333333")
+          .text(cell, x + 5, rowY, { width });
         x += width;
       });
 

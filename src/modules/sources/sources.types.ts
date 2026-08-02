@@ -3,7 +3,10 @@ import { z } from "zod";
 export const createSourceSchema = z.object({
   name: z.string().min(1).max(100),
   emoji: z.string().min(1).max(10).default("💰"),
-  color: z.string().regex(/^#[0-9A-Fa-f]{6}$/).default("#4CAF50"),
+  color: z
+    .string()
+    .regex(/^#[0-9A-Fa-f]{6}$/)
+    .default("#4CAF50"),
   currency: z.enum(["UZS", "USD", "EUR", "RUB", "GBP", "CNY"]).default("UZS"),
   description: z.string().max(500).optional(),
 });
@@ -11,7 +14,10 @@ export const createSourceSchema = z.object({
 export const updateSourceSchema = z.object({
   name: z.string().min(1).max(100).optional(),
   emoji: z.string().min(1).max(10).optional(),
-  color: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional(),
+  color: z
+    .string()
+    .regex(/^#[0-9A-Fa-f]{6}$/)
+    .optional(),
   currency: z.enum(["UZS", "USD", "EUR", "RUB", "GBP", "CNY"]).optional(),
   description: z.string().max(500).optional(),
 });

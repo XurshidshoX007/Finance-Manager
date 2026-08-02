@@ -46,15 +46,24 @@ export class BackupService {
 
       const env = { ...process.env, PGPASSWORD: password };
 
-      await execFileAsync("pg_dump", [
-        "-h", host,
-        "-p", port,
-        "-U", user,
-        "-d", dbName,
-        "--no-owner",
-        "--no-privileges",
-        "-f", sqlFilePath,
-      ], { env, timeout: 300000 });
+      await execFileAsync(
+        "pg_dump",
+        [
+          "-h",
+          host,
+          "-p",
+          port,
+          "-U",
+          user,
+          "-d",
+          dbName,
+          "--no-owner",
+          "--no-privileges",
+          "-f",
+          sqlFilePath,
+        ],
+        { env, timeout: 300000 },
+      );
 
       this.logger.info({ sqlFilePath }, "SQL dump created");
 
@@ -98,13 +107,11 @@ export class BackupService {
 
       const env = { ...process.env, PGPASSWORD: password };
 
-      await execFileAsync("psql", [
-        "-h", host,
-        "-p", port,
-        "-U", user,
-        "-d", dbName,
-        "-f", sqlFilePath,
-      ], { env, timeout: 300000 });
+      await execFileAsync(
+        "psql",
+        ["-h", host, "-p", port, "-U", user, "-d", dbName, "-f", sqlFilePath],
+        { env, timeout: 300000 },
+      );
 
       this.logger.info("Restore completed successfully");
     } catch (error) {
@@ -135,7 +142,8 @@ export class BackupService {
 
     type BackupInfo = { fileName: string; size: number; createdAt: Date };
 
-    const files = fs.readdirSync(backupDir)
+    const files = fs
+      .readdirSync(backupDir)
       .filter((f) => f.endsWith(".zip"))
       .map((f): BackupInfo | null => {
         try {

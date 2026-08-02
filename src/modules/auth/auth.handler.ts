@@ -24,11 +24,11 @@ export class AuthHandler {
     const firstName = ctx.from?.first_name ?? "Foydalanuvchi";
     await ctx.reply(
       `👋 Salom, ${firstName}!\n\n` +
-      `Finance Manager — moliyaviy boshqaruv tizimi.\n\n` +
-      `📊 /menu - Bosh menyu\n` +
-      `❓ /help - Yordam\n` +
-      `👤 /profile - Profil\n` +
-      `🔑 /role - Rol ma'lumotlari`,
+        `Finance Manager — moliyaviy boshqaruv tizimi.\n\n` +
+        `📊 /menu - Bosh menyu\n` +
+        `❓ /help - Yordam\n` +
+        `👤 /profile - Profil\n` +
+        `🔑 /role - Rol ma'lumotlari`,
     );
   }
 
@@ -51,10 +51,7 @@ export class AuthHandler {
         ? "\n\n🔧 Admin buyruqlari:\n👥 /users - Foydalanuvchilar\n⚙️ /settings - Sozlamalar"
         : "";
 
-    const helpText =
-      "📖 Finance Manager - Yordam\n\n" +
-      baseCommands.join("\n") +
-      adminCommands;
+    const helpText = "📖 Finance Manager - Yordam\n\n" + baseCommands.join("\n") + adminCommands;
 
     await ctx.reply(helpText);
   }
@@ -83,9 +80,7 @@ export class AuthHandler {
             { text: "💵 Tranzaksiyalar", callback_data: "transactions:list" },
             { text: "🏦 Kreditlar", callback_data: "credits:list" },
           ],
-          [
-            { text: "📈 Hisobotlar", callback_data: "reports:dashboard" },
-          ],
+          [{ text: "📈 Hisobotlar", callback_data: "reports:dashboard" }],
         ],
       },
     });
@@ -113,9 +108,7 @@ export class AuthHandler {
     const permissionList = permissions.map((p) => `  ✅ ${p}`).join("\n");
 
     const roleText =
-      `🔑 Rol ma'lumotlari\n\n` +
-      `Sizning rolingiz: ${role}\n\n` +
-      `Ruxsatlar:\n${permissionList}`;
+      `🔑 Rol ma'lumotlari\n\n` + `Sizning rolingiz: ${role}\n\n` + `Ruxsatlar:\n${permissionList}`;
 
     await ctx.reply(roleText);
   }

@@ -165,7 +165,14 @@ export class TransactionsRepository {
 
     return createPaginatedResult(transactions as unknown[], total, pagination) as unknown as {
       data: Record<string, unknown>[];
-      pagination: { page: number; limit: number; total: number; totalPages: number; hasNext: boolean; hasPrev: boolean };
+      pagination: {
+        page: number;
+        limit: number;
+        total: number;
+        totalPages: number;
+        hasNext: boolean;
+        hasPrev: boolean;
+      };
     };
   }
 
@@ -191,7 +198,12 @@ export class TransactionsRepository {
     });
   }
 
-  async calculateBalance(userId: string, currency: string, dateFrom?: Date, dateTo?: Date): Promise<{ income: number; expense: number; net: number }> {
+  async calculateBalance(
+    userId: string,
+    currency: string,
+    dateFrom?: Date,
+    dateTo?: Date,
+  ): Promise<{ income: number; expense: number; net: number }> {
     const dateFilter: Record<string, Date> = {};
     if (dateFrom) dateFilter.gte = dateFrom;
     if (dateTo) dateFilter.lte = dateTo;
@@ -232,7 +244,11 @@ export class TransactionsRepository {
    * Ilgari har bir valyuta uchun ketma-ket 2 tadan, jami 12 ta
    * so'rov yuborilardi.
    */
-  async calculateBalanceByCurrency(userId: string, dateFrom?: Date, dateTo?: Date): Promise<Record<string, { income: number; expense: number; net: number }>> {
+  async calculateBalanceByCurrency(
+    userId: string,
+    dateFrom?: Date,
+    dateTo?: Date,
+  ): Promise<Record<string, { income: number; expense: number; net: number }>> {
     const dateFilter: Record<string, Date> = {};
     if (dateFrom) dateFilter.gte = dateFrom;
     if (dateTo) dateFilter.lte = dateTo;
@@ -274,11 +290,23 @@ export class TransactionsRepository {
 
   async countByType(userId: string, type: string): Promise<number> {
     return this.prisma.transaction.count({
-      where: { createdBy: userId, type: type as "INCOME" | "EXPENSE" | "TRANSFER", isArchived: false, isCancelled: false },
+      where: {
+        createdBy: userId,
+        type: type as "INCOME" | "EXPENSE" | "TRANSFER",
+        isArchived: false,
+        isCancelled: false,
+      },
     });
   }
 
-  async sumByCategory(userId: string, type: string, dateFrom?: Date, dateTo?: Date): Promise<Array<{ categoryId: string; categoryName: string; categoryEmoji: string; total: number }>> {
+  async sumByCategory(
+    userId: string,
+    type: string,
+    dateFrom?: Date,
+    dateTo?: Date,
+  ): Promise<
+    Array<{ categoryId: string; categoryName: string; categoryEmoji: string; total: number }>
+  > {
     const dateFilter: Record<string, Date> = {};
     if (dateFrom) dateFilter.gte = dateFrom;
     if (dateTo) dateFilter.lte = dateTo;
@@ -325,7 +353,12 @@ export class TransactionsRepository {
       .sort((a, b) => b.total - a.total);
   }
 
-  async sumBySource(userId: string, type: string, dateFrom?: Date, dateTo?: Date): Promise<Array<{ sourceId: string; sourceName: string; sourceEmoji: string; total: number }>> {
+  async sumBySource(
+    userId: string,
+    type: string,
+    dateFrom?: Date,
+    dateTo?: Date,
+  ): Promise<Array<{ sourceId: string; sourceName: string; sourceEmoji: string; total: number }>> {
     const dateFilter: Record<string, Date> = {};
     if (dateFrom) dateFilter.gte = dateFrom;
     if (dateTo) dateFilter.lte = dateTo;
@@ -343,9 +376,7 @@ export class TransactionsRepository {
       },
     })) as Array<{ sourceId: string | null; _sum: { amount: unknown } }>;
 
-    const sourceIds = grouped
-      .map((row) => row.sourceId)
-      .filter((id): id is string => Boolean(id));
+    const sourceIds = grouped.map((row) => row.sourceId).filter((id): id is string => Boolean(id));
 
     if (sourceIds.length === 0) return [];
 

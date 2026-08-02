@@ -30,7 +30,10 @@ export class ReportsHandler {
   }
 
   private async sendDashboard(ctx: CustomContext): Promise<void> {
-    const dashboard = await this.reportsService.getDashboard(ctx.appState.userId, ctx.appState.userRole);
+    const dashboard = await this.reportsService.getDashboard(
+      ctx.appState.userId,
+      ctx.appState.userRole,
+    );
 
     const text =
       "📊 Dashboard\n\n" +
@@ -53,9 +56,7 @@ export class ReportsHandler {
             { text: "📅 Oylik", callback_data: "report:period:monthly" },
             { text: "📅 Yillik", callback_data: "report:period:yearly" },
           ],
-          [
-            { text: "📈 KPI", callback_data: "reports:kpi" },
-          ],
+          [{ text: "📈 KPI", callback_data: "reports:kpi" }],
           [{ text: "🔙 Ortga", callback_data: "menu" }],
         ],
       },
@@ -108,9 +109,7 @@ export class ReportsHandler {
 
     await ctx.reply(text, {
       reply_markup: {
-        inline_keyboard: [
-          [{ text: "🔙 Dashboard", callback_data: "reports:dashboard" }],
-        ],
+        inline_keyboard: [[{ text: "🔙 Dashboard", callback_data: "reports:dashboard" }]],
       },
     });
     await safeAnswerCallback(ctx);
@@ -129,9 +128,7 @@ export class ReportsHandler {
 
     await ctx.reply(text, {
       reply_markup: {
-        inline_keyboard: [
-          [{ text: "🔙 Dashboard", callback_data: "reports:dashboard" }],
-        ],
+        inline_keyboard: [[{ text: "🔙 Dashboard", callback_data: "reports:dashboard" }]],
       },
     });
     await safeAnswerCallback(ctx);

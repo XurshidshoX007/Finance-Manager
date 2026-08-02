@@ -38,7 +38,12 @@ export class NotificationWorker {
       const todayStart = startOfDay(now);
       const todayEnd = endOfDay(now);
 
-      const balance = await this.transactionsRepo.calculateBalance(userId, "UZS", todayStart, todayEnd);
+      const balance = await this.transactionsRepo.calculateBalance(
+        userId,
+        "UZS",
+        todayStart,
+        todayEnd,
+      );
 
       const text =
         "☀️ Kunlik eslatma\n\n" +
@@ -55,7 +60,10 @@ export class NotificationWorker {
         message: text,
       });
     } catch (error) {
-      this.logger.error({ error, userId, telegramId: telegramId.toString() }, "Failed to send daily reminder to user");
+      this.logger.error(
+        { error, userId, telegramId: telegramId.toString() },
+        "Failed to send daily reminder to user",
+      );
     }
   }
 

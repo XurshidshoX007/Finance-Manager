@@ -55,11 +55,16 @@ export class CategoriesHandler {
     if (result.data.length === 0) {
       await ctx.reply(
         "📂 Kategoriyalar ro'yxati bo'sh.\n\n" +
-        "Standart kategoriyalarni bir bosishda qo'shishingiz yoki o'zingiznikini yaratishingiz mumkin:",
+          "Standart kategoriyalarni bir bosishda qo'shishingiz yoki o'zingiznikini yaratishingiz mumkin:",
         {
           reply_markup: {
             inline_keyboard: [
-              [{ text: "⚡️ Standart kategoriyalarni qo'shish", callback_data: "category:defaults" }],
+              [
+                {
+                  text: "⚡️ Standart kategoriyalarni qo'shish",
+                  callback_data: "category:defaults",
+                },
+              ],
               [{ text: "➕ Kategoriya qo'shish", callback_data: "category:create:start" }],
               [{ text: "🔙 Ortga", callback_data: "menu" }],
             ],
@@ -116,7 +121,11 @@ export class CategoriesHandler {
       return;
     }
 
-    const category = await this.categoriesService.getById(id, ctx.appState.userId, ctx.appState.userRole);
+    const category = await this.categoriesService.getById(
+      id,
+      ctx.appState.userId,
+      ctx.appState.userRole,
+    );
 
     const typeLabel = category.type === "INCOME" ? "🟢 Kirim" : "🔴 Chiqim";
     const text =
@@ -154,21 +163,17 @@ export class CategoriesHandler {
   }
 
   private async handleCreateStart(ctx: CustomContext): Promise<void> {
-    await ctx.reply(
-      "➕ Yangi kategoriya qo'shish\n\n" +
-      "Kategoriya turi tanlang:",
-      {
-        reply_markup: {
-          inline_keyboard: [
-            [
-              { text: "🟢 Kirim", callback_data: "category:create:income" },
-              { text: "🔴 Chiqim", callback_data: "category:create:expense" },
-            ],
-            [{ text: "🔙 Ortga", callback_data: "categories:list" }],
+    await ctx.reply("➕ Yangi kategoriya qo'shish\n\n" + "Kategoriya turi tanlang:", {
+      reply_markup: {
+        inline_keyboard: [
+          [
+            { text: "🟢 Kirim", callback_data: "category:create:income" },
+            { text: "🔴 Chiqim", callback_data: "category:create:expense" },
           ],
-        },
+          [{ text: "🔙 Ortga", callback_data: "categories:list" }],
+        ],
       },
-    );
+    });
   }
 
   private async handleCreateType(ctx: CustomContext): Promise<void> {
@@ -180,10 +185,10 @@ export class CategoriesHandler {
     await safeAnswerCallback(ctx);
     await ctx.reply(
       `➕ Yangi ${type === "INCOME" ? "🟢 kirim" : "🔴 chiqim"} kategoriyasi\n\n` +
-      "Kategoriya nomini yuboring.\n" +
-      "Ixtiyoriy: nom oldidan emoji qo'shsangiz, u kategoriya emojisi bo'ladi.\n" +
-      "Masalan: 🍔 Oziq-ovqat\n\n" +
-      "Bekor qilish uchun /cancel",
+        "Kategoriya nomini yuboring.\n" +
+        "Ixtiyoriy: nom oldidan emoji qo'shsangiz, u kategoriya emojisi bo'ladi.\n" +
+        "Masalan: 🍔 Oziq-ovqat\n\n" +
+        "Bekor qilish uchun /cancel",
     );
   }
 
@@ -248,8 +253,8 @@ export class CategoriesHandler {
       createSessions.delete(ctx.appState.userId);
       await ctx.reply(
         `✅ Kategoriya yaratildi!\n\n` +
-        `${category.emoji} ${category.name}\n` +
-        `Turi: ${category.type === "INCOME" ? "🟢 Kirim" : "🔴 Chiqim"}`,
+          `${category.emoji} ${category.name}\n` +
+          `Turi: ${category.type === "INCOME" ? "🟢 Kirim" : "🔴 Chiqim"}`,
         {
           reply_markup: {
             inline_keyboard: [[{ text: "📂 Kategoriyalar", callback_data: "categories:list" }]],

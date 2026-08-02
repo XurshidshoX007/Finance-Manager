@@ -1,9 +1,20 @@
 import type { TransactionsRepository } from "./transactions.repository.js";
 import type { AuditLogService } from "../users/audit-log.service.js";
-import type { CreateTransactionInput, CreateTransferInput, CancelTransactionInput, TransactionFilterInput, TransactionSortInput } from "./transactions.types.js";
-import type { PaginationInput, PaginatedResult , Permission } from "../../shared/types/index.js";
+import type {
+  CreateTransactionInput,
+  CreateTransferInput,
+  CancelTransactionInput,
+  TransactionFilterInput,
+  TransactionSortInput,
+} from "./transactions.types.js";
+import type { PaginationInput, PaginatedResult, Permission } from "../../shared/types/index.js";
 import { ROLE_PERMISSIONS } from "../../shared/types/index.js";
-import { ForbiddenError, NotFoundError, ValidationError, ConflictError } from "../../shared/errors/index.js";
+import {
+  ForbiddenError,
+  NotFoundError,
+  ValidationError,
+  ConflictError,
+} from "../../shared/errors/index.js";
 import { getLogger } from "../../shared/logger/index.js";
 import { toDecimal } from "../../shared/utils/index.js";
 
@@ -42,7 +53,11 @@ export class TransactionsService {
     this.auditLogService = auditLogService;
   }
 
-  async create(userId: string, userRole: string, input: CreateTransactionInput): Promise<TransactionWithDetails> {
+  async create(
+    userId: string,
+    userRole: string,
+    input: CreateTransactionInput,
+  ): Promise<TransactionWithDetails> {
     this.requirePermission(userRole, "TRANSACTIONS_CREATE");
 
     const amount = toDecimal(input.amount);
@@ -76,7 +91,11 @@ export class TransactionsService {
     return this.mapTransactionWithDetails(full as unknown as Record<string, unknown>);
   }
 
-  async createTransfer(userId: string, userRole: string, input: CreateTransferInput): Promise<TransactionWithDetails> {
+  async createTransfer(
+    userId: string,
+    userRole: string,
+    input: CreateTransferInput,
+  ): Promise<TransactionWithDetails> {
     this.requirePermission(userRole, "TRANSACTIONS_CREATE");
 
     const amount = toDecimal(input.amount);
@@ -142,7 +161,12 @@ export class TransactionsService {
     };
   }
 
-  async cancel(userId: string, userRole: string, id: string, input: CancelTransactionInput): Promise<void> {
+  async cancel(
+    userId: string,
+    userRole: string,
+    id: string,
+    input: CancelTransactionInput,
+  ): Promise<void> {
     this.requirePermission(userRole, "TRANSACTIONS_CANCEL");
 
     const transaction = await this.transactionsRepo.findByIdAndUser(id, userId);
@@ -178,7 +202,13 @@ export class TransactionsService {
     this.logger.info({ transactionId: id, userId }, "Transaction archived");
   }
 
-  async getBalance(userId: string, userRole: string, currency?: string, dateFrom?: Date, dateTo?: Date): Promise<BalanceResult | Record<string, BalanceResult>> {
+  async getBalance(
+    userId: string,
+    userRole: string,
+    currency?: string,
+    dateFrom?: Date,
+    dateTo?: Date,
+  ): Promise<BalanceResult | Record<string, BalanceResult>> {
     this.requirePermission(userRole, "REPORTS_READ");
 
     if (currency) {
@@ -188,12 +218,24 @@ export class TransactionsService {
     return this.transactionsRepo.calculateBalanceByCurrency(userId, dateFrom, dateTo);
   }
 
-  async getStatsByCategory(userId: string, userRole: string, type: string, dateFrom?: Date, dateTo?: Date) {
+  async getStatsByCategory(
+    userId: string,
+    userRole: string,
+    type: string,
+    dateFrom?: Date,
+    dateTo?: Date,
+  ) {
     this.requirePermission(userRole, "REPORTS_READ");
     return this.transactionsRepo.sumByCategory(userId, type, dateFrom, dateTo);
   }
 
-  async getStatsBySource(userId: string, userRole: string, type: string, dateFrom?: Date, dateTo?: Date) {
+  async getStatsBySource(
+    userId: string,
+    userRole: string,
+    type: string,
+    dateFrom?: Date,
+    dateTo?: Date,
+  ) {
     this.requirePermission(userRole, "REPORTS_READ");
     return this.transactionsRepo.sumBySource(userId, type, dateFrom, dateTo);
   }

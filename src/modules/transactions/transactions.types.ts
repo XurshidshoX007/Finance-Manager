@@ -2,10 +2,13 @@ import { z } from "zod";
 
 export const createTransactionSchema = z.object({
   type: z.enum(["INCOME", "EXPENSE"]),
-  amount: z.string().min(1).refine((val) => {
-    const num = Number(val);
-    return !isNaN(num) && num > 0;
-  }, "Amount must be a positive number"),
+  amount: z
+    .string()
+    .min(1)
+    .refine((val) => {
+      const num = Number(val);
+      return !isNaN(num) && num > 0;
+    }, "Amount must be a positive number"),
   currency: z.enum(["UZS", "USD", "EUR", "RUB", "GBP", "CNY"]).default("UZS"),
   description: z.string().max(500).optional(),
   referenceId: z.string().optional(),
@@ -15,10 +18,13 @@ export const createTransactionSchema = z.object({
 });
 
 export const createTransferSchema = z.object({
-  amount: z.string().min(1).refine((val) => {
-    const num = Number(val);
-    return !isNaN(num) && num > 0;
-  }, "Amount must be a positive number"),
+  amount: z
+    .string()
+    .min(1)
+    .refine((val) => {
+      const num = Number(val);
+      return !isNaN(num) && num > 0;
+    }, "Amount must be a positive number"),
   currency: z.enum(["UZS", "USD", "EUR", "RUB", "GBP", "CNY"]).default("UZS"),
   description: z.string().max(500).optional(),
   transferSourceId: z.string().min(1),

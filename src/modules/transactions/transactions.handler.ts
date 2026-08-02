@@ -33,9 +33,12 @@ export function parseAmountInput(raw: string): string | null {
   if (!Number.isFinite(base) || base <= 0) return null;
 
   const suffix = match[2];
-  const multiplier = suffix === "k" || suffix === "ming" ? 1_000
-    : suffix === "m" || suffix === "mln" || suffix === "million" ? 1_000_000
-    : 1;
+  const multiplier =
+    suffix === "k" || suffix === "ming"
+      ? 1_000
+      : suffix === "m" || suffix === "mln" || suffix === "million"
+        ? 1_000_000
+        : 1;
 
   const value = base * multiplier;
   if (!Number.isFinite(value) || value <= 0 || value > 1e15) return null;
@@ -100,7 +103,7 @@ export class TransactionsHandler {
     if (result.data.length === 0) {
       await ctx.reply(
         "💵 Tranzaksiyalar ro'yxati bo'sh.\n\n" +
-        "Yangi tranzaksiya qo'shish uchun quyidagi tugmalardan foydalaning:",
+          "Yangi tranzaksiya qo'shish uchun quyidagi tugmalardan foydalaning:",
         {
           reply_markup: {
             inline_keyboard: [
@@ -156,9 +159,14 @@ export class TransactionsHandler {
       return;
     }
 
-    const tx = await this.transactionsService.getById(id, ctx.appState.userId, ctx.appState.userRole);
+    const tx = await this.transactionsService.getById(
+      id,
+      ctx.appState.userId,
+      ctx.appState.userRole,
+    );
 
-    const typeLabel = tx.type === "INCOME" ? "🟢 Kirim" : tx.type === "EXPENSE" ? "🔴 Chiqim" : "🔄 O'tkazma";
+    const typeLabel =
+      tx.type === "INCOME" ? "🟢 Kirim" : tx.type === "EXPENSE" ? "🔴 Chiqim" : "🔄 O'tkazma";
     const cancelledLabel = tx.isCancelled ? "\n❌ BEKOR QILINGAN" : "";
 
     const text =
@@ -217,14 +225,19 @@ export class TransactionsHandler {
     await this.startFlow(ctx, "TRANSFER", "🔄 Yangi o'tkazma", "100000");
   }
 
-  private async startFlow(ctx: CustomContext, type: TxKind, title: string, example: string): Promise<void> {
+  private async startFlow(
+    ctx: CustomContext,
+    type: TxKind,
+    title: string,
+    example: string,
+  ): Promise<void> {
     userSessions.set(ctx.appState.userId, { type, step: "amount" });
     await safeAnswerCallback(ctx);
     await ctx.reply(
       `${title}\n\n` +
-      "Miqdorni yuboring:\n" +
-      `Masalan: ${example}, 250k yoki 1.5mln\n\n` +
-      "Bekor qilish uchun /cancel",
+        "Miqdorni yuboring:\n" +
+        `Masalan: ${example}, 250k yoki 1.5mln\n\n` +
+        "Bekor qilish uchun /cancel",
       {
         reply_markup: {
           inline_keyboard: [[{ text: "❌ Bekor qilish", callback_data: "tx:abort" }]],
@@ -268,8 +281,8 @@ export class TransactionsHandler {
     if (!amount) {
       await ctx.reply(
         "❌ Miqdorni tushunmadim.\n\n" +
-        "Musbat son yuboring. Masalan: 50000, 250k, 1.5mln\n" +
-        "Bekor qilish uchun /cancel",
+          "Musbat son yuboring. Masalan: 50000, 250k, 1.5mln\n" +
+          "Bekor qilish uchun /cancel",
       );
       return;
     }
@@ -297,7 +310,9 @@ export class TransactionsHandler {
 
     const buttons = categories
       .slice(0, 30)
-      .map((cat) => [{ text: `${cat.emoji} ${cat.name}`, callback_data: `tx:pick:category:${cat.id}` }]);
+      .map((cat) => [
+        { text: `${cat.emoji} ${cat.name}`, callback_data: `tx:pick:category:${cat.id}` },
+      ]);
 
     buttons.push([{ text: "⏭ Kategoriyasiz", callback_data: "tx:skip:category" }]);
     buttons.push([{ text: "❌ Bekor qilish", callback_data: "tx:abort" }]);
@@ -306,18 +321,18 @@ export class TransactionsHandler {
   }
 
   private async askSource(ctx: CustomContext, title: string, prefix: string): Promise<void> {
-    const sources = await this.sourcesService.listActive(ctx.appState.userId, ctx.appState.userRole);
+    const sources = await this.sourcesService.listActive(
+      ctx.appState.userId,
+      ctx.appState.userRole,
+    );
 
     if (sources.length === 0) {
       userSessions.delete(ctx.appState.userId);
-      await ctx.reply(
-        "❌ Sizda mablag' manbasi yo'q.\n\nAvval manba qo'shing:",
-        {
-          reply_markup: {
-            inline_keyboard: [[{ text: "➕ Manba qo'shish", callback_data: "source:create:start" }]],
-          },
+      await ctx.reply("❌ Sizda mablag' manbasi yo'q.\n\nAvval manba qo'shing:", {
+        reply_markup: {
+          inline_keyboard: [[{ text: "➕ Manba qo'shish", callback_data: "source:create:start" }]],
         },
-      );
+      });
       return;
     }
 
@@ -428,36 +443,34 @@ export class TransactionsHandler {
         userSessions.delete(ctx.appState.userId);
         await ctx.reply(
           `✅ O'tkazma saqlandi!\n\n` +
-          `🔄 ${formatMoney(Number(tx.amount), tx.currency)}\n` +
-          `📤 ${tx.transferSource?.emoji ?? ""} ${tx.transferSource?.name ?? "-"}\n` +
-          `📥 ${tx.transferTarget?.emoji ?? ""} ${tx.transferTarget?.name ?? "-"}`,
+            `🔄 ${formatMoney(Number(tx.amount), tx.currency)}\n` +
+            `📤 ${tx.transferSource?.emoji ?? ""} ${tx.transferSource?.name ?? "-"}\n` +
+            `📥 ${tx.transferTarget?.emoji ?? ""} ${tx.transferTarget?.name ?? "-"}`,
           {
             reply_markup: {
-              inline_keyboard: [[{ text: "💵 Tranzaksiyalar", callback_data: "transactions:list" }]],
+              inline_keyboard: [
+                [{ text: "💵 Tranzaksiyalar", callback_data: "transactions:list" }],
+              ],
             },
           },
         );
         return;
       }
 
-      const tx = await this.transactionsService.create(
-        ctx.appState.userId,
-        ctx.appState.userRole,
-        {
-          type: session.type,
-          amount: session.amount,
-          currency: "UZS",
-          categoryId: session.categoryId,
-          sourceId: session.sourceId,
-        },
-      );
+      const tx = await this.transactionsService.create(ctx.appState.userId, ctx.appState.userRole, {
+        type: session.type,
+        amount: session.amount,
+        currency: "UZS",
+        categoryId: session.categoryId,
+        sourceId: session.sourceId,
+      });
 
       userSessions.delete(ctx.appState.userId);
       await ctx.reply(
         `✅ ${session.type === "INCOME" ? "Kirim" : "Chiqim"} saqlandi!\n\n` +
-        `💰 ${formatMoney(Number(tx.amount), tx.currency)}\n` +
-        (tx.category ? `📂 ${tx.category.emoji} ${tx.category.name}\n` : "") +
-        (tx.source ? `💳 ${tx.source.emoji} ${tx.source.name}` : ""),
+          `💰 ${formatMoney(Number(tx.amount), tx.currency)}\n` +
+          (tx.category ? `📂 ${tx.category.emoji} ${tx.category.name}\n` : "") +
+          (tx.source ? `💳 ${tx.source.emoji} ${tx.source.name}` : ""),
         {
           reply_markup: {
             inline_keyboard: [[{ text: "💵 Tranzaksiyalar", callback_data: "transactions:list" }]],
@@ -472,11 +485,11 @@ export class TransactionsHandler {
   }
 
   private async handleBalance(ctx: CustomContext): Promise<void> {
-    const balance = await this.transactionsService.getBalance(
+    const balance = (await this.transactionsService.getBalance(
       ctx.appState.userId,
       ctx.appState.userRole,
       "UZS",
-    ) as { income: number; expense: number; net: number };
+    )) as { income: number; expense: number; net: number };
 
     const text =
       "📊 Balans:\n\n" +
@@ -486,9 +499,7 @@ export class TransactionsHandler {
 
     await ctx.reply(text, {
       reply_markup: {
-        inline_keyboard: [
-          [{ text: "🔙 Ortga", callback_data: "transactions:list" }],
-        ],
+        inline_keyboard: [[{ text: "🔙 Ortga", callback_data: "transactions:list" }]],
       },
     });
     await safeAnswerCallback(ctx);

@@ -1,10 +1,24 @@
 import type { TransactionsRepository } from "../transactions/transactions.repository.js";
 import type { CreditsRepository } from "../credits/credits.repository.js";
 import type { AuditLogService } from "../users/audit-log.service.js";
-import type { ReportFilterInput, ReportResult, DashboardResult, KpiResult } from "./reports.types.js";
+import type {
+  ReportFilterInput,
+  ReportResult,
+  DashboardResult,
+  KpiResult,
+} from "./reports.types.js";
 import { ROLE_PERMISSIONS, Permission } from "../../shared/types/index.js";
 import { ForbiddenError, ValidationError } from "../../shared/errors/index.js";
-import { startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfYear, endOfYear } from "../../shared/utils/index.js";
+import {
+  startOfDay,
+  endOfDay,
+  startOfWeek,
+  endOfWeek,
+  startOfMonth,
+  endOfMonth,
+  startOfYear,
+  endOfYear,
+} from "../../shared/utils/index.js";
 
 export class ReportsService {
   private readonly transactionsRepo: TransactionsRepository;
@@ -19,12 +33,23 @@ export class ReportsService {
     this.creditsRepo = creditsRepo;
   }
 
-  async getReport(userId: string, userRole: string, input: ReportFilterInput): Promise<ReportResult> {
+  async getReport(
+    userId: string,
+    userRole: string,
+    input: ReportFilterInput,
+  ): Promise<ReportResult> {
     this.requirePermission(userRole, Permission.REPORTS_READ);
 
     const { dateFrom, dateTo } = this.getDateRange(input.period, input.dateFrom, input.dateTo);
 
-    const [balance, topIncomeCategories, topExpenseCategories, topIncomeSources, topExpenseSources, balanceByCurrency] = await Promise.all([
+    const [
+      balance,
+      topIncomeCategories,
+      topExpenseCategories,
+      topIncomeSources,
+      topExpenseSources,
+      balanceByCurrency,
+    ] = await Promise.all([
       this.transactionsRepo.calculateBalance(userId, input.currency, dateFrom, dateTo),
       this.transactionsRepo.sumByCategory(userId, "INCOME", dateFrom, dateTo),
       this.transactionsRepo.sumByCategory(userId, "EXPENSE", dateFrom, dateTo),
@@ -159,33 +184,30 @@ export class ReportsService {
     const lastMonthStart = startOfMonth(lastMonth);
     const lastMonthEnd = endOfMonth(lastMonth);
 
-    const [
-      thisMonthBalance,
-      lastMonthBalance,
-      totalBalance,
-      remainingDebt,
-    ] = await Promise.all([
+    const [thisMonthBalance, lastMonthBalance, totalBalance, remainingDebt] = await Promise.all([
       this.transactionsRepo.calculateBalance(userId, "UZS", thisMonthStart, thisMonthEnd),
       this.transactionsRepo.calculateBalance(userId, "UZS", lastMonthStart, lastMonthEnd),
       this.transactionsRepo.calculateBalance(userId, "UZS"),
       this.creditsRepo.sumRemainingDebt(userId, "UZS"),
     ]);
 
-    const savingsRate = thisMonthBalance.income > 0
-      ? ((thisMonthBalance.income - thisMonthBalance.expense) / thisMonthBalance.income) * 100
-      : 0;
+    const savingsRate =
+      thisMonthBalance.income > 0
+        ? ((thisMonthBalance.income - thisMonthBalance.expense) / thisMonthBalance.income) * 100
+        : 0;
 
-    const incomeGrowth = lastMonthBalance.income > 0
-      ? ((thisMonthBalance.income - lastMonthBalance.income) / lastMonthBalance.income) * 100
-      : 0;
+    const incomeGrowth =
+      lastMonthBalance.income > 0
+        ? ((thisMonthBalance.income - lastMonthBalance.income) / lastMonthBalance.income) * 100
+        : 0;
 
-    const expenseGrowth = lastMonthBalance.expense > 0
-      ? ((thisMonthBalance.expense - lastMonthBalance.expense) / lastMonthBalance.expense) * 100
-      : 0;
+    const expenseGrowth =
+      lastMonthBalance.expense > 0
+        ? ((thisMonthBalance.expense - lastMonthBalance.expense) / lastMonthBalance.expense) * 100
+        : 0;
 
-    const debtToIncomeRatio = thisMonthBalance.income > 0
-      ? remainingDebt / thisMonthBalance.income
-      : 0;
+    const debtToIncomeRatio =
+      thisMonthBalance.income > 0 ? remainingDebt / thisMonthBalance.income : 0;
 
     return {
       savingsRate: Math.round(savingsRate * 100) / 100,
@@ -196,7 +218,11 @@ export class ReportsService {
     };
   }
 
-  private getDateRange(period: string, dateFrom?: string, dateTo?: string): { dateFrom?: Date; dateTo?: Date } {
+  private getDateRange(
+    period: string,
+    dateFrom?: string,
+    dateTo?: string,
+  ): { dateFrom?: Date; dateTo?: Date } {
     const now = new Date();
 
     if (period === "custom") {

@@ -162,10 +162,7 @@ describe("Credit Calculator", () => {
 
     it("should calculate total interest correctly", () => {
       const result = calculateAnnuitySchedule("12000000", "12", 12, baseDate);
-      const totalPayments = result.schedule.reduce(
-        (sum, s) => sum + Number(s.totalPayment),
-        0,
-      );
+      const totalPayments = result.schedule.reduce((sum, s) => sum + Number(s.totalPayment), 0);
       const totalPrincipal = Number(
         result.schedule.reduce((sum, s) => sum + Number(s.principalAmount), 0).toFixed(2),
       );

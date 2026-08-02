@@ -9,7 +9,10 @@ export class UsersRepository {
     this.prisma = prisma;
   }
 
-  async findAll(pagination: PaginationInput, filters?: { role?: string; isActive?: boolean; isBlocked?: boolean }) {
+  async findAll(
+    pagination: PaginationInput,
+    filters?: { role?: string; isActive?: boolean; isBlocked?: boolean },
+  ) {
     const where: Record<string, unknown> = { isArchived: false };
 
     if (filters?.role) {
@@ -100,6 +103,8 @@ export class UsersRepository {
   }
 
   async countUsersByRole(role: string): Promise<number> {
-    return this.prisma.user.count({ where: { role: role as "ADMIN" | "MANAGER" | "EMPLOYEE", isArchived: false } });
+    return this.prisma.user.count({
+      where: { role: role as "ADMIN" | "MANAGER" | "EMPLOYEE", isArchived: false },
+    });
   }
 }

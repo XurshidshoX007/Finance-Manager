@@ -7,7 +7,11 @@ function createPaginationInput(page?: number, limit?: number) {
   return { page: safePage, limit: safeLimit };
 }
 
-function createPaginatedResult<T>(data: T[], total: number, pagination: { page: number; limit: number }) {
+function createPaginatedResult<T>(
+  data: T[],
+  total: number,
+  pagination: { page: number; limit: number },
+) {
   const totalPages = Math.ceil(total / pagination.limit);
   return {
     data,

@@ -47,7 +47,7 @@ export class SourcesHandler {
     if (result.data.length === 0) {
       await ctx.reply(
         "💰 Mablag' manbalari ro'yxati bo'sh.\n\n" +
-        "Yangi manba qo'shish uchun quyidagi tugmani bosing:",
+          "Yangi manba qo'shish uchun quyidagi tugmani bosing:",
         {
           reply_markup: {
             inline_keyboard: [
@@ -94,7 +94,11 @@ export class SourcesHandler {
       return;
     }
 
-    const source = await this.sourcesService.getById(id, ctx.appState.userId, ctx.appState.userRole);
+    const source = await this.sourcesService.getById(
+      id,
+      ctx.appState.userId,
+      ctx.appState.userRole,
+    );
 
     const text =
       `${source.emoji} ${source.name}\n\n` +
@@ -133,9 +137,9 @@ export class SourcesHandler {
   private async handleCreateStart(ctx: CustomContext): Promise<void> {
     await ctx.reply(
       "➕ Yangi manba qo'shish\n\n" +
-      "Manba nomini yuboring:\n" +
-      "Masalan: Naqd pul\n\n" +
-      "Bekor qilish uchun /cancel buyrug'ini yuboring",
+        "Manba nomini yuboring:\n" +
+        "Masalan: Naqd pul\n\n" +
+        "Bekor qilish uchun /cancel buyrug'ini yuboring",
     );
     userSessions.set(ctx.appState.userId, { creatingSource: true });
   }
@@ -182,8 +186,8 @@ export class SourcesHandler {
       userSessions.delete(ctx.appState.userId);
       await ctx.reply(
         `✅ Manba muvaffaqiyatli yaratildi!\n\n` +
-        `${source.emoji} ${source.name}\n` +
-        `Valyuta: ${source.currency}`,
+          `${source.emoji} ${source.name}\n` +
+          `Valyuta: ${source.currency}`,
       );
     } catch (error) {
       const message = error instanceof Error ? error.message : "Xatolik yuz berdi";

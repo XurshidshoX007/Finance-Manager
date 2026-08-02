@@ -1,28 +1,33 @@
-version: "3.9"
-
 services:
   postgres:
     image: postgres:16-alpine
     container_name: finance-manager-db
     environment:
-      POSTGRES_USER: finance
-      POSTGRES_PASSWORD: finance123
-      POSTGRES_DB: finance_manager
+      POSTGRES_USER: ${POSTGRES_USER:-finance}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      POSTGRES_DB: ${POSTGRES_DB:-finance_manager}
+    # Diqqat: port faqat lokal interfeysga ochiladi. Ilgari "5432:5432"
+    # bazani butun tarmoqqa (va serverda — internetga) ochib qo'yardi.
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U finance -d finance_manager"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-finance} -d ${POSTGRES_DB:-finance_manager}"]
       interval: 10s
       timeout: 5s
       retries: 5
+    restart: unless-stopped
 
   redis:
     image: redis:7-alpine
     container_name: finance-manager-redis
+    command: >
+      redis-server
+      --appendonly yes
+      ${REDIS_PASSWORD:+--requirepass ${REDIS_PASSWORD}}
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6379:6379"
     volumes:
       - redis_data:/data
     healthcheck:
@@ -30,6 +35,7 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    restart: unless-stopped
 
   app:
     build:
@@ -37,20 +43,29 @@ services:
       dockerfile: docker/Dockerfile
     container_name: finance-manager-app
     ports:
-      - "3000:3000"
+      - "${APP_PORT:-3000}:3000"
     environment:
       NODE_ENV: production
       APP_PORT: 3000
-      BOT_TOKEN: ${BOT_TOKEN}
+      APP_URL: ${APP_URL:-http://localhost:3000}
+      MINI_APP_URL: ${MINI_APP_URL:-http://localhost:3000/mini-app}
+      BOT_TOKEN: ${BOT_TOKEN:?BOT_TOKEN is required}
       BOT_WEBHOOK_URL: ${BOT_WEBHOOK_URL:-}
-      BOT_WEBHOOK_PATH: /webhook
+      BOT_WEBHOOK_PATH: ${BOT_WEBHOOK_PATH:-/webhook}
       BOT_SECRET_TOKEN: ${BOT_SECRET_TOKEN:-}
-      DATABASE_URL: postgresql://finance:finance123@postgres:5432/finance_manager?schema=public
+      DATABASE_URL: postgresql://${POSTGRES_USER:-finance}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-finance_manager}?schema=public
       REDIS_HOST: redis
       REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
       ADMIN_TELEGRAM_IDS: ${ADMIN_TELEGRAM_IDS:-}
-      JWT_SECRET: ${JWT_SECRET:-change-me-in-production}
-      LOG_LEVEL: info
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      BACKUP_DIR: /app/backups
+      BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-30}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      TZ: ${TZ:-Asia/Tashkent}
+    volumes:
+      # Backup'lar konteyner o'chirilganda yo'qolmasligi uchun
+      - backups:/app/backups
     depends_on:
       postgres:
         condition: service_healthy
@@ -61,3 +76,4 @@ services:
 volumes:
   postgres_data:
   redis_data:
+  backups:

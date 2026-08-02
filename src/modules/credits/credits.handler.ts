@@ -38,22 +38,18 @@ export class CreditsHandler {
     );
 
     if (result.data.length === 0) {
-      await ctx.reply(
-        "🏦 Kreditlar ro'yxati bo'sh.",
-        {
-          reply_markup: {
-            inline_keyboard: [
-              [{ text: "🔙 Ortga", callback_data: "menu" }],
-            ],
-          },
+      await ctx.reply("🏦 Kreditlar ro'yxati bo'sh.", {
+        reply_markup: {
+          inline_keyboard: [[{ text: "🔙 Ortga", callback_data: "menu" }]],
         },
-      );
+      });
       return;
     }
 
     const creditsText = result.data
       .map((credit) => {
-        const statusIcon = credit.status === "ACTIVE" ? "🟢" : credit.status === "COMPLETED" ? "✅" : "🔴";
+        const statusIcon =
+          credit.status === "ACTIVE" ? "🟢" : credit.status === "COMPLETED" ? "✅" : "🔴";
         return `${statusIcon} ${credit.name}: ${formatMoney(Number(credit.remainingDebt), credit.currency)} / ${formatMoney(Number(credit.totalAmount), credit.currency)}`;
       })
       .join("\n");
@@ -85,10 +81,19 @@ export class CreditsHandler {
       return;
     }
 
-    const credit = await this.creditsService.getById(id, ctx.appState.userId, ctx.appState.userRole);
+    const credit = await this.creditsService.getById(
+      id,
+      ctx.appState.userId,
+      ctx.appState.userRole,
+    );
 
     const typeLabel = credit.type === "ANNUITY" ? "📋 Annuitet" : "📊 Differensial";
-    const statusLabel = credit.status === "ACTIVE" ? "🟢 Faol" : credit.status === "COMPLETED" ? "✅ Yakunlangan" : "🔴 Bekor qilingan";
+    const statusLabel =
+      credit.status === "ACTIVE"
+        ? "🟢 Faol"
+        : credit.status === "COMPLETED"
+          ? "✅ Yakunlangan"
+          : "🔴 Bekor qilingan";
 
     const text =
       `🏦 ${credit.name}\n\n` +
@@ -132,7 +137,10 @@ export class CreditsHandler {
   }
 
   private async handleStats(ctx: CustomContext): Promise<void> {
-    const stats = await this.creditsService.getCreditStats(ctx.appState.userId, ctx.appState.userRole);
+    const stats = await this.creditsService.getCreditStats(
+      ctx.appState.userId,
+      ctx.appState.userRole,
+    );
 
     const text =
       "📊 Kredit statistikasi:\n\n" +
@@ -143,9 +151,7 @@ export class CreditsHandler {
 
     await ctx.reply(text, {
       reply_markup: {
-        inline_keyboard: [
-          [{ text: "🔙 Ortga", callback_data: "credits:list" }],
-        ],
+        inline_keyboard: [[{ text: "🔙 Ortga", callback_data: "credits:list" }]],
       },
     });
     await safeAnswerCallback(ctx);

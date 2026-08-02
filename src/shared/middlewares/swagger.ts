@@ -6,9 +6,7 @@ export function createSwaggerSetup() {
       version: "1.0.0",
       description: "Production-grade Finance Manager REST API for Telegram",
     },
-    servers: [
-      { url: "/api/v1", description: "API v1" },
-    ],
+    servers: [{ url: "/api/v1", description: "API v1" }],
     components: {
       securitySchemes: {
         UserAuth: {
@@ -143,18 +141,36 @@ export function createSwaggerSetup() {
       "/sources/{id}": {
         get: { summary: "Get source", responses: { "200": { description: "Source details" } } },
         put: { summary: "Update source", responses: { "200": { description: "Source updated" } } },
-        delete: { summary: "Archive source", responses: { "200": { description: "Source archived" } } },
+        delete: {
+          summary: "Archive source",
+          responses: { "200": { description: "Source archived" } },
+        },
       },
       "/categories": {
-        get: { summary: "List categories", responses: { "200": { description: "Categories list" } } },
-        post: { summary: "Create category", responses: { "201": { description: "Category created" } } },
+        get: {
+          summary: "List categories",
+          responses: { "200": { description: "Categories list" } },
+        },
+        post: {
+          summary: "Create category",
+          responses: { "201": { description: "Category created" } },
+        },
       },
       "/transactions": {
-        get: { summary: "List transactions", responses: { "200": { description: "Transactions list" } } },
-        post: { summary: "Create transaction", responses: { "201": { description: "Transaction created" } } },
+        get: {
+          summary: "List transactions",
+          responses: { "200": { description: "Transactions list" } },
+        },
+        post: {
+          summary: "Create transaction",
+          responses: { "201": { description: "Transaction created" } },
+        },
       },
       "/transactions/transfer": {
-        post: { summary: "Create transfer", responses: { "201": { description: "Transfer created" } } },
+        post: {
+          summary: "Create transfer",
+          responses: { "201": { description: "Transfer created" } },
+        },
       },
       "/credits": {
         get: { summary: "List credits", responses: { "200": { description: "Credits list" } } },

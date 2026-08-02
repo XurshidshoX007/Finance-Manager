@@ -1,7 +1,12 @@
 import type { PrismaClient } from "@prisma/client";
 import type { PaginationInput } from "../../shared/types/index.js";
 import { calculateOffset, createPaginatedResult } from "../../shared/utils/index.js";
-import type { CreateCategoryInput, UpdateCategoryInput, CategoryFilterInput, CreateCategoryGroupInput } from "./categories.types.js";
+import type {
+  CreateCategoryInput,
+  UpdateCategoryInput,
+  CategoryFilterInput,
+  CreateCategoryGroupInput,
+} from "./categories.types.js";
 
 export class CategoriesRepository {
   private readonly prisma: PrismaClient;
@@ -238,7 +243,10 @@ export class CategoriesRepository {
     return stats;
   }
 
-  async calculateCategoryStats(categoryId: string, currency: string): Promise<{ total: number; count: number }> {
+  async calculateCategoryStats(
+    categoryId: string,
+    currency: string,
+  ): Promise<{ total: number; count: number }> {
     const result = await this.prisma.transaction.aggregate({
       _sum: { amount: true },
       _count: true,

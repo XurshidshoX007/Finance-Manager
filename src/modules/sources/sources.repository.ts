@@ -149,7 +149,14 @@ export class SourcesRepository {
           isCancelled: false,
           isArchived: false,
         },
-      }) as Promise<Array<{ sourceId: string | null; type: string; currency: string; _sum: { amount: unknown } }>>,
+      }) as Promise<
+        Array<{
+          sourceId: string | null;
+          type: string;
+          currency: string;
+          _sum: { amount: unknown };
+        }>
+      >,
       this.prisma.transaction.groupBy({
         by: ["transferSourceId", "currency"],
         _sum: { amount: true },
@@ -159,7 +166,9 @@ export class SourcesRepository {
           isCancelled: false,
           isArchived: false,
         },
-      }) as Promise<Array<{ transferSourceId: string | null; currency: string; _sum: { amount: unknown } }>>,
+      }) as Promise<
+        Array<{ transferSourceId: string | null; currency: string; _sum: { amount: unknown } }>
+      >,
       this.prisma.transaction.groupBy({
         by: ["transferTargetId", "currency"],
         _sum: { amount: true },
@@ -169,10 +178,17 @@ export class SourcesRepository {
           isCancelled: false,
           isArchived: false,
         },
-      }) as Promise<Array<{ transferTargetId: string | null; currency: string; _sum: { amount: unknown } }>>,
+      }) as Promise<
+        Array<{ transferTargetId: string | null; currency: string; _sum: { amount: unknown } }>
+      >,
     ]);
 
-    const apply = (id: string | null, currency: string, amount: number, kind: "income" | "expense"): void => {
+    const apply = (
+      id: string | null,
+      currency: string,
+      amount: number,
+      kind: "income" | "expense",
+    ): void => {
       if (!id) return;
       if (currencyById.get(id) !== currency) return;
 
@@ -184,7 +200,12 @@ export class SourcesRepository {
     };
 
     for (const row of direct) {
-      apply(row.sourceId, row.currency, Number(row._sum.amount ?? 0), row.type === "INCOME" ? "income" : "expense");
+      apply(
+        row.sourceId,
+        row.currency,
+        Number(row._sum.amount ?? 0),
+        row.type === "INCOME" ? "income" : "expense",
+      );
     }
 
     // O'tkazmalar: chiquvchi manbadan yechiladi, qabul qiluvchiga qo'shiladi.
@@ -200,9 +221,11 @@ export class SourcesRepository {
     return balances;
   }
 
-  async calculateSourceBalance(sourceId: string, currency: string): Promise<{ income: number; expense: number; net: number }> {
+  async calculateSourceBalance(
+    sourceId: string,
+    currency: string,
+  ): Promise<{ income: number; expense: number; net: number }> {
     const balances = await this.calculateBalancesForSources([{ id: sourceId, currency }]);
     return balances.get(sourceId) ?? { income: 0, expense: 0, net: 0 };
   }
-
 }

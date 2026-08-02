@@ -30,7 +30,11 @@ export class ExcelService {
     this.auditLogService = auditLogService;
   }
 
-  async exportTransactions(userId: string, userRole: string, filters?: Record<string, unknown>): Promise<Buffer> {
+  async exportTransactions(
+    userId: string,
+    userRole: string,
+    filters?: Record<string, unknown>,
+  ): Promise<Buffer> {
     this.requirePermission(userRole, Permission.EXCEL_EXPORT);
 
     // Diqqat: filtrlar `createdBy` dan KEYIN yoyilmaydi — aks holda
@@ -103,7 +107,7 @@ export class ExcelService {
       to: { row: 1, column: 10 },
     };
 
-    const buffer = await workbook.xlsx.writeBuffer() as unknown as Buffer;
+    const buffer = (await workbook.xlsx.writeBuffer()) as unknown as Buffer;
 
     await this.auditLogService.logExport(userId, "TRANSACTION", {
       count: transactions.length,
@@ -166,7 +170,12 @@ export class ExcelService {
         interestRate: Number(credit.interestRate),
         termMonths: credit.termMonths,
         type: credit.type === "ANNUITY" ? "Annuitet" : "Differensial",
-        status: credit.status === "ACTIVE" ? "Faol" : credit.status === "COMPLETED" ? "Yakunlangan" : "Bekor qilingan",
+        status:
+          credit.status === "ACTIVE"
+            ? "Faol"
+            : credit.status === "COMPLETED"
+              ? "Yakunlangan"
+              : "Bekor qilingan",
         startDate: (credit.startDate as Date).toLocaleDateString("uz-UZ"),
         endDate: (credit.endDate as Date).toLocaleDateString("uz-UZ"),
       });
@@ -289,7 +298,12 @@ export class ExcelService {
     };
   }
 
-  async importTransactions(userId: string, userRole: string, buffer: Buffer, columnMapping: Record<string, string>): Promise<{ imported: number; skipped: number; errors: string[] }> {
+  async importTransactions(
+    userId: string,
+    userRole: string,
+    buffer: Buffer,
+    columnMapping: Record<string, string>,
+  ): Promise<{ imported: number; skipped: number; errors: string[] }> {
     this.requirePermission(userRole, Permission.EXCEL_IMPORT);
 
     const workbook = new ExcelJS.Workbook();

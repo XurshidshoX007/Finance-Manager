@@ -46,14 +46,18 @@ export class QueueService {
   }
 
   async addDailyReminder(userId: string, telegramId: string): Promise<void> {
-    await this.queue.add("daily_reminder", {
-      type: "daily_reminder",
-      userId,
-      telegramId,
-    }, {
-      attempts: 3,
-      backoff: { type: "exponential", delay: 5000 },
-    });
+    await this.queue.add(
+      "daily_reminder",
+      {
+        type: "daily_reminder",
+        userId,
+        telegramId,
+      },
+      {
+        attempts: 3,
+        backoff: { type: "exponential", delay: 5000 },
+      },
+    );
     this.logger.debug({ userId }, "Daily reminder job added");
   }
 
@@ -65,28 +69,36 @@ export class QueueService {
     amount: string,
     paymentDate: string,
   ): Promise<void> {
-    await this.queue.add("credit_reminder", {
-      type: "credit_reminder",
-      creditId,
-      userId,
-      telegramId,
-      creditName,
-      amount,
-      paymentDate,
-    }, {
-      attempts: 3,
-      backoff: { type: "exponential", delay: 5000 },
-    });
+    await this.queue.add(
+      "credit_reminder",
+      {
+        type: "credit_reminder",
+        creditId,
+        userId,
+        telegramId,
+        creditName,
+        amount,
+        paymentDate,
+      },
+      {
+        attempts: 3,
+        backoff: { type: "exponential", delay: 5000 },
+      },
+    );
     this.logger.debug({ creditId, userId }, "Credit reminder job added");
   }
 
   async addBackupJob(): Promise<void> {
-    await this.queue.add("backup", {
-      type: "backup",
-    }, {
-      attempts: 2,
-      backoff: { type: "exponential", delay: 10000 },
-    });
+    await this.queue.add(
+      "backup",
+      {
+        type: "backup",
+      },
+      {
+        attempts: 2,
+        backoff: { type: "exponential", delay: 10000 },
+      },
+    );
     this.logger.info("Backup job added");
   }
 
@@ -104,13 +116,21 @@ export class QueueService {
     });
 
     worker.on("failed", (job, err) => {
-      this.logger.error({ jobId: job?.id, type: job?.data?.type, error: err.message }, "Job failed");
+      this.logger.error(
+        { jobId: job?.id, type: job?.data?.type, error: err.message },
+        "Job failed",
+      );
     });
 
     return worker;
   }
 
-  async getQueueStats(): Promise<{ waiting: number; active: number; completed: number; failed: number }> {
+  async getQueueStats(): Promise<{
+    waiting: number;
+    active: number;
+    completed: number;
+    failed: number;
+  }> {
     const [waiting, active, completed, failed] = await Promise.all([
       this.queue.getWaitingCount(),
       this.queue.getActiveCount(),

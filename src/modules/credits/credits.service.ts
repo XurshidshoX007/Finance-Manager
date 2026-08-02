@@ -39,7 +39,11 @@ export class CreditsService {
     this.auditLogService = auditLogService;
   }
 
-  async create(userId: string, userRole: string, input: CreateCreditInput): Promise<CreditWithDetails> {
+  async create(
+    userId: string,
+    userRole: string,
+    input: CreateCreditInput,
+  ): Promise<CreditWithDetails> {
     this.requirePermission(userRole, Permission.CREDITS_CREATE);
 
     const totalAmount = toDecimal(input.totalAmount);
@@ -57,8 +61,18 @@ export class CreditsService {
 
     const calculation =
       input.type === "ANNUITY"
-        ? calculateAnnuitySchedule(input.totalAmount, input.interestRate, input.termMonths, startDate)
-        : calculateDifferentialSchedule(input.totalAmount, input.interestRate, input.termMonths, startDate);
+        ? calculateAnnuitySchedule(
+            input.totalAmount,
+            input.interestRate,
+            input.termMonths,
+            startDate,
+          )
+        : calculateDifferentialSchedule(
+            input.totalAmount,
+            input.interestRate,
+            input.termMonths,
+            startDate,
+          );
 
     const credit = await this.creditsRepo.create({
       name: input.name,
@@ -123,7 +137,9 @@ export class CreditsService {
     const result = await this.creditsRepo.findAll(userId, pagination, filters);
 
     return {
-      data: result.data.map((credit: unknown) => this.mapCreditWithDetails(credit as Record<string, unknown>)),
+      data: result.data.map((credit: unknown) =>
+        this.mapCreditWithDetails(credit as Record<string, unknown>),
+      ),
       pagination: result.pagination,
     };
   }
@@ -132,10 +148,17 @@ export class CreditsService {
     this.requirePermission(userRole, Permission.CREDITS_READ);
 
     const credits = await this.creditsRepo.findActiveByUser(userId);
-    return credits.map((credit: unknown) => this.mapCreditWithDetails(credit as Record<string, unknown>));
+    return credits.map((credit: unknown) =>
+      this.mapCreditWithDetails(credit as Record<string, unknown>),
+    );
   }
 
-  async earlyPayment(userId: string, userRole: string, creditId: string, input: EarlyPaymentInput): Promise<void> {
+  async earlyPayment(
+    userId: string,
+    userRole: string,
+    creditId: string,
+    input: EarlyPaymentInput,
+  ): Promise<void> {
     this.requirePermission(userRole, Permission.CREDITS_EARLY_PAYMENT);
 
     const credit = await this.creditsRepo.findByIdAndUser(creditId, userId);
