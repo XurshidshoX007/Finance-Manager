@@ -1,8 +1,8 @@
 import type { CategoriesRepository } from "./categories.repository.js";
 import type { AuditLogService } from "../users/audit-log.service.js";
 import type { CreateCategoryInput, UpdateCategoryInput, CategoryFilterInput, CreateCategoryGroupInput } from "./categories.types.js";
-import type { PaginationInput, PaginatedResult } from "../../shared/types/index.js";
-import { ROLE_PERMISSIONS, Permission } from "../../shared/types/index.js";
+import type { PaginationInput, PaginatedResult , Permission } from "../../shared/types/index.js";
+import { ROLE_PERMISSIONS } from "../../shared/types/index.js";
 import { ForbiddenError, NotFoundError, ConflictError } from "../../shared/errors/index.js";
 import { getLogger } from "../../shared/logger/index.js";
 import { DEFAULT_CATEGORIES } from "./default-categories.js";
@@ -151,16 +151,16 @@ export class CategoriesService {
 
     const result = await this.categoriesRepo.findAll(userId, pagination, filters);
 
-    const categoriesWithStats = await Promise.all(
-      result.data.map(async (category: unknown) => {
-        const cat = category as Record<string, unknown>;
-        const stats = await this.categoriesRepo.calculateCategoryStats(cat.id as string, "UZS");
-        return this.mapCategoryWithStats(cat, stats);
-      }),
+    const rows = result.data as unknown as Array<Record<string, unknown>>;
+    const statsMap = await this.categoriesRepo.calculateStatsForCategories(
+      rows.map((cat) => cat.id as string),
+      "UZS",
     );
 
     return {
-      data: categoriesWithStats,
+      data: rows.map((cat) =>
+        this.mapCategoryWithStats(cat, statsMap.get(cat.id as string) ?? { total: 0, count: 0 }),
+      ),
       pagination: result.pagination,
     };
   }
@@ -170,13 +170,17 @@ export class CategoriesService {
 
     await this.ensureDefaults(userId);
 
-    const categories = await this.categoriesRepo.findActiveByUser(userId, type);
+    const categories = (await this.categoriesRepo.findActiveByUser(userId, type)) as unknown as Array<
+      Record<string, unknown>
+    >;
 
-    return Promise.all(
-      categories.map(async (category: Record<string, unknown>) => {
-        const stats = await this.categoriesRepo.calculateCategoryStats(category.id as string, "UZS");
-        return this.mapCategoryWithStats(category, stats);
-      }),
+    const statsMap = await this.categoriesRepo.calculateStatsForCategories(
+      categories.map((cat) => cat.id as string),
+      "UZS",
+    );
+
+    return categories.map((cat) =>
+      this.mapCategoryWithStats(cat, statsMap.get(cat.id as string) ?? { total: 0, count: 0 }),
     );
   }
 

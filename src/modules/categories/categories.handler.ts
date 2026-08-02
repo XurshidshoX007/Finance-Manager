@@ -4,13 +4,14 @@ import type { CategoriesService } from "./categories.service.js";
 import { createPaginationInput } from "../../shared/utils/index.js";
 import { formatMoney } from "../../shared/utils/index.js";
 import { createCategorySchema } from "./categories.types.js";
+import { SessionStore } from "../../shared/session/index.js";
 
 interface CreateSession {
   type: "INCOME" | "EXPENSE";
   step: "name";
 }
 
-const createSessions = new Map<string, CreateSession>();
+const createSessions = new SessionStore<CreateSession>();
 
 export class CategoriesHandler {
   private readonly bot: Bot<CustomContext>;

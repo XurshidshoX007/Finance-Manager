@@ -155,19 +155,49 @@ async function main(): Promise<void> {
   usersHandler.register();
 
   const sourcesHandler = new SourcesHandler(bot, sourcesService);
-  sourcesHandler.register();
 
   const categoriesHandler = new CategoriesHandler(bot, categoriesService);
-  categoriesHandler.register();
 
-  const transactionsHandler = new TransactionsHandler(bot, transactionsService);
-  transactionsHandler.register();
+  const transactionsHandler = new TransactionsHandler(
+    bot,
+    transactionsService,
+    categoriesService,
+    sourcesService,
+  );
 
   const creditsHandler = new CreditsHandler(bot, creditsService);
   creditsHandler.register(bot);
 
   const reportsHandler = new ReportsHandler(bot, reportsService);
   reportsHandler.register();
+
+  // Diqqat: matn oqimlari (`bot.on("message:text")`) ichida bo'lgan
+  // handler'lar oxirida ro'yxatdan o'tishi kerak, aks holda ular
+  // boshqa modullarning buyruq/callback'larini bloklaydi.
+  sourcesHandler.register();
+  categoriesHandler.register();
+  transactionsHandler.register();
+
+  // Global bot xatoliklarini ushlash: ilgari handler ichidagi
+  // istalgan istisno butun polling'ni to'xtatib qo'yishi mumkin edi.
+  bot.catch((err) => {
+    const ctx = err.ctx;
+    logger.error(
+      { error: err.error, updateId: ctx?.update?.update_id, userId: ctx?.from?.id },
+      "Bot handler error",
+    );
+
+    void ctx?.reply?.("❌ Kutilmagan xatolik yuz berdi. Qaytadan urinib ko'ring.").catch(() => undefined);
+  });
+
+  // Mini App faqat HTTPS orqali ochiladi (Telegram talabi)
+  const miniAppUrl = config.MINI_APP_URL.startsWith("https://") ? config.MINI_APP_URL : null;
+  if (!miniAppUrl) {
+    logger.warn(
+      { miniAppUrl: config.MINI_APP_URL },
+      "MINI_APP_URL is not HTTPS — Mini App button will be hidden",
+    );
+  }
 
   // Menu callback
   bot.callbackQuery("menu", async (ctx) => {
@@ -190,6 +220,9 @@ async function main(): Promise<void> {
             [
               { text: "📈 Hisobotlar", callback_data: "reports:dashboard" },
             ],
+            ...(miniAppUrl
+              ? [[{ text: "📱 Mini App", web_app: { url: miniAppUrl } }]]
+              : []),
           ],
         },
       },
@@ -202,19 +235,61 @@ async function main(): Promise<void> {
 
   const app = express();
 
-  app.use(helmet());
-  app.use(cors());
+  // Reverse proxy ortida to'g'ri client IP olish (rate limit uchun muhim)
+  app.set("trust proxy", 1);
+
+  app.use(
+    helmet({
+      // Mini App Telegram iframe ichida ochiladi
+      crossOriginEmbedderPolicy: false,
+      contentSecurityPolicy: false,
+    }),
+  );
+
+  // Ilgari cors() barcha domenlarga ochiq edi
+  const allowedOrigins = new Set(
+    [config.MINI_APP_URL, config.APP_URL].filter((origin) => origin.length > 0),
+  );
+
+  app.use(
+    cors({
+      origin: (origin, callback) => {
+        if (!origin || config.NODE_ENV === "development" || allowedOrigins.has(origin)) {
+          callback(null, true);
+          return;
+        }
+        callback(new Error("Origin not allowed by CORS"));
+      },
+      credentials: true,
+    }),
+  );
+
   app.use(compression());
-  app.use(express.json({ limit: "10mb" }));
+  // Webhook body'si kichik; 10mb JSON kerak emas
+  app.use(express.json({ limit: "1mb" }));
   app.use(express.raw({ type: "application/octet-stream", limit: "10mb" }));
   app.use(requestLogger);
 
   const apiLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
-    max: 100,
+    limit: 300,
+    standardHeaders: "draft-7",
+    legacyHeaders: false,
     message: { success: false, error: { code: "RATE_LIMIT_EXCEEDED", message: "Too many requests" } },
   });
   app.use("/api", apiLimiter);
+
+  // Eksport/hisobot kabi og'ir amallar uchun qattiqroq limit
+  const heavyLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    limit: 20,
+    standardHeaders: "draft-7",
+    legacyHeaders: false,
+    message: { success: false, error: { code: "RATE_LIMIT_EXCEEDED", message: "Too many export requests" } },
+  });
+  app.use("/api/v1/excel", heavyLimiter);
+  app.use("/api/v1/reports/pdf", heavyLimiter);
+  app.use("/api/v1/backup", heavyLimiter);
 
   const apiRoutes = createApiRoutes({
     authService,
@@ -230,12 +305,22 @@ async function main(): Promise<void> {
     settingsService,
     backupService,
     queueService,
+    botToken: config.BOT_TOKEN,
+    allowHeaderFallback: config.NODE_ENV === "development",
   });
 
   app.use("/api/v1", apiRoutes);
 
   // Serve Mini App static files
   app.use("/mini-app", express.static("mini-app/dist"));
+
+  // Noma'lum API yo'llari uchun aniq 404 (ilgari HTML qaytarardi)
+  app.use("/api", (_req, res) => {
+    res.status(404).json({
+      success: false,
+      error: { code: "NOT_FOUND", message: "Endpoint not found" },
+    });
+  });
 
   app.use(errorHandler);
 
@@ -246,24 +331,47 @@ async function main(): Promise<void> {
   if (config.BOT_WEBHOOK_URL) {
     logger.info({ webhookUrl: config.BOT_WEBHOOK_URL }, "Starting in webhook mode");
 
-    app.use(config.BOT_WEBHOOK_PATH, async (req, res) => {
+    // Webhook bir marta o'rnatiladi (ilgari har bir kelgan update'da
+    // qayta chaqirilardi — bu Telegram rate limitiga urилardi).
+    await bot.init();
+    await bot.api.setWebhook(config.BOT_WEBHOOK_URL, {
+      secret_token: config.BOT_SECRET_TOKEN,
+      drop_pending_updates: false,
+    });
+    logger.info("Webhook registered");
+
+    app.post(config.BOT_WEBHOOK_PATH, async (req, res) => {
+      // Telegram'dan kelganini tasdiqlash
+      if (config.BOT_SECRET_TOKEN) {
+        const token = req.header("x-telegram-bot-api-secret-token");
+        if (token !== config.BOT_SECRET_TOKEN) {
+          logger.warn("Rejected webhook request with invalid secret token");
+          res.sendStatus(401);
+          return;
+        }
+      }
+
       try {
-        await bot.api.setWebhook(config.BOT_WEBHOOK_URL!, {
-          secret_token: config.BOT_SECRET_TOKEN,
-        });
         await bot.handleUpdate(req.body);
         res.sendStatus(200);
       } catch (error) {
         logger.error({ error }, "Webhook error");
-        res.sendStatus(500);
+        // 200 qaytaramiz: aks holda Telegram bir xil update'ni cheksiz qayta yuboradi
+        res.sendStatus(200);
       }
     });
   } else {
     logger.info("Starting in polling mode");
-    bot.start({
+    // bot.start() polling tugaguncha "resolve" bo'lmaydi, shuning uchun
+    // uni kutmaymiz — lekin xatolarni yutib yubormaymiz.
+    void bot.start({
+      drop_pending_updates: true,
       onStart: (info) => {
         logger.info({ username: info.username }, "Bot started");
       },
+    }).catch((error) => {
+      logger.fatal({ error }, "Bot polling stopped unexpectedly");
+      process.exit(1);
     });
   }
 
@@ -319,22 +427,55 @@ async function main(): Promise<void> {
   // GRACEFUL SHUTDOWN
   // ============================================
 
-  const shutdown = async (signal: string) => {
+  let shuttingDown = false;
+
+  const shutdown = async (signal: string): Promise<void> => {
+    if (shuttingDown) return;
+    shuttingDown = true;
+
     logger.info({ signal }, "Shutting down...");
 
-    server.close();
-    bot.stop();
-    await worker.close();
-    await queueService.close();
-    await disconnectPrisma();
-    await disconnectRedis();
+    // Agar 15 soniyada tugamasa — majburan chiqamiz
+    const forceExit = setTimeout(() => {
+      logger.error("Graceful shutdown timed out, forcing exit");
+      process.exit(1);
+    }, 15_000);
+    forceExit.unref();
 
+    const steps: Array<[string, () => Promise<unknown>]> = [
+      ["http-server", () => new Promise<void>((resolve) => server.close(() => resolve()))],
+      ["scheduler", async () => scheduler.stop()],
+      ["bot", async () => bot.stop()],
+      ["worker", () => worker.close()],
+      ["queue", () => queueService.close()],
+      ["prisma", () => disconnectPrisma()],
+      ["redis", () => disconnectRedis()],
+    ];
+
+    for (const [name, step] of steps) {
+      try {
+        await step();
+      } catch (error) {
+        logger.error({ error, step: name }, "Shutdown step failed");
+      }
+    }
+
+    clearTimeout(forceExit);
     logger.info("Shutdown complete");
     process.exit(0);
   };
 
-  process.on("SIGTERM", () => shutdown("SIGTERM"));
-  process.on("SIGINT", () => shutdown("SIGINT"));
+  process.on("SIGTERM", () => void shutdown("SIGTERM"));
+  process.on("SIGINT", () => void shutdown("SIGINT"));
+
+  process.on("unhandledRejection", (reason) => {
+    logger.error({ reason }, "Unhandled promise rejection");
+  });
+
+  process.on("uncaughtException", (error) => {
+    logger.fatal({ error }, "Uncaught exception");
+    void shutdown("uncaughtException");
+  });
 
   logger.info("Finance Manager started successfully!");
 }

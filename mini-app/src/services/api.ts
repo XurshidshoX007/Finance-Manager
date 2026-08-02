@@ -9,15 +9,46 @@ function getHeaders(): Record<string, string> {
   };
 }
 
+const REQUEST_TIMEOUT_MS = 20_000;
+
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
-  const response = await fetch(`${API_BASE}${path}`, {
-    ...options,
-    headers: { ...getHeaders(), ...options?.headers },
-  });
+  // Osilib qolgan so'rovlarni to'xtatish uchun timeout
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
+  let response: Response;
+  try {
+    response = await fetch(`${API_BASE}${path}`, {
+      ...options,
+      signal: controller.signal,
+      headers: { ...getHeaders(), ...options?.headers },
+    });
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "AbortError") {
+      throw new Error("So'rov vaqti tugadi. Internetni tekshirib, qaytadan urining.");
+    }
+    throw new Error("Tarmoq xatosi. Internetni tekshiring.");
+  } finally {
+    clearTimeout(timeout);
+  }
 
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ error: { message: "Network error" } }));
-    throw new Error((error as Record<string, { message: string }>).error?.message || "Request failed");
+    const payload = await response.json().catch(() => null) as
+      | { error?: { message?: string } }
+      | null;
+
+    if (response.status === 401) {
+      throw new Error("Sessiya tugagan. Mini App'ni Telegram orqali qayta oching.");
+    }
+    if (response.status === 403) {
+      throw new Error(payload?.error?.message ?? "Bu amal uchun ruxsat yo'q.");
+    }
+
+    throw new Error(payload?.error?.message ?? `Xatolik (${response.status})`);
+  }
+
+  if (response.status === 204) {
+    return undefined as T;
   }
 
   const json = await response.json() as { success: boolean; data: T };

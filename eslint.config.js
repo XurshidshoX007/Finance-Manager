@@ -27,6 +27,18 @@ export default [
     },
   },
   {
+    // Testlarda ma'lum bo'lgan massiv indekslariga `!` ishlatish normal
+    files: ["src/tests/**/*.ts"],
+    languageOptions: {
+      parser: tsParser,
+      parserOptions: { project: "./tsconfig.json", sourceType: "module" },
+    },
+    plugins: { "@typescript-eslint": eslint },
+    rules: {
+      "@typescript-eslint/no-non-null-assertion": "off",
+    },
+  },
+  {
     ignores: ["node_modules/", "dist/", "mini-app/", "coverage/"],
   },
 ];

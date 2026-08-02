@@ -197,6 +197,47 @@ export class CategoriesRepository {
     });
   }
 
+  /**
+   * Bir nechta kategoriya statistikasini BITTA so'rovda hisoblaydi.
+   * Ilgari ro'yxatdagi har bir kategoriya uchun alohida aggregate
+   * chaqirilardi (N+1): 20 ta kategoriya = 20 ta so'rov.
+   */
+  async calculateStatsForCategories(
+    categoryIds: string[],
+    currency: string,
+  ): Promise<Map<string, { total: number; count: number }>> {
+    const stats = new Map<string, { total: number; count: number }>();
+    for (const id of categoryIds) {
+      stats.set(id, { total: 0, count: 0 });
+    }
+
+    if (categoryIds.length === 0) {
+      return stats;
+    }
+
+    const grouped = await this.prisma.transaction.groupBy({
+      by: ["categoryId"],
+      _sum: { amount: true },
+      _count: { _all: true },
+      where: {
+        categoryId: { in: categoryIds },
+        currency: currency as "UZS" | "USD" | "EUR" | "RUB" | "GBP" | "CNY",
+        isCancelled: false,
+        isArchived: false,
+      },
+    });
+
+    for (const row of grouped) {
+      if (!row.categoryId) continue;
+      stats.set(row.categoryId, {
+        total: Number(row._sum.amount ?? 0),
+        count: row._count._all,
+      });
+    }
+
+    return stats;
+  }
+
   async calculateCategoryStats(categoryId: string, currency: string): Promise<{ total: number; count: number }> {
     const result = await this.prisma.transaction.aggregate({
       _sum: { amount: true },

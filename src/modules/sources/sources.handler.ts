@@ -4,8 +4,9 @@ import type { SourcesService } from "./sources.service.js";
 import { createSourceSchema } from "./sources.types.js";
 import { createPaginationInput } from "../../shared/utils/index.js";
 import { formatMoney } from "../../shared/utils/index.js";
+import { SessionStore } from "../../shared/session/index.js";
 
-const userSessions = new Map<string, { creatingSource: boolean }>();
+const userSessions = new SessionStore<{ creatingSource: boolean }>();
 
 export class SourcesHandler {
   private readonly bot: Bot<CustomContext>;

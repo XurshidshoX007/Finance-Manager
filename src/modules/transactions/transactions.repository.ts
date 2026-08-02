@@ -204,19 +204,21 @@ export class TransactionsRepository {
       ...(Object.keys(dateFilter).length > 0 ? { transactionDate: dateFilter } : {}),
     };
 
-    const [incomeResult, expenseResult] = await Promise.all([
-      this.prisma.transaction.aggregate({
-        _sum: { amount: true },
-        where: { ...whereBase, type: "INCOME" },
-      }),
-      this.prisma.transaction.aggregate({
-        _sum: { amount: true },
-        where: { ...whereBase, type: "EXPENSE" },
-      }),
-    ]);
+    // Ikkita alohida aggregate o'rniga bitta groupBy
+    const grouped = await this.prisma.transaction.groupBy({
+      by: ["type"],
+      _sum: { amount: true },
+      where: { ...whereBase, type: { in: ["INCOME", "EXPENSE"] } },
+    });
 
-    const income = Number(incomeResult._sum.amount ?? 0);
-    const expense = Number(expenseResult._sum.amount ?? 0);
+    let income = 0;
+    let expense = 0;
+
+    for (const row of grouped) {
+      const amount = Number(row._sum.amount ?? 0);
+      if (row.type === "INCOME") income = amount;
+      else if (row.type === "EXPENSE") expense = amount;
+    }
 
     return {
       income,
@@ -225,15 +227,40 @@ export class TransactionsRepository {
     };
   }
 
+  /**
+   * Barcha valyutalar bo'yicha balans — BITTA so'rovda.
+   * Ilgari har bir valyuta uchun ketma-ket 2 tadan, jami 12 ta
+   * so'rov yuborilardi.
+   */
   async calculateBalanceByCurrency(userId: string, dateFrom?: Date, dateTo?: Date): Promise<Record<string, { income: number; expense: number; net: number }>> {
-    const currencies = ["UZS", "USD", "EUR", "RUB", "GBP", "CNY"];
+    const dateFilter: Record<string, Date> = {};
+    if (dateFrom) dateFilter.gte = dateFrom;
+    if (dateTo) dateFilter.lte = dateTo;
+
+    const grouped = await this.prisma.transaction.groupBy({
+      by: ["currency", "type"],
+      _sum: { amount: true },
+      where: {
+        createdBy: userId,
+        type: { in: ["INCOME", "EXPENSE"] },
+        isCancelled: false,
+        isArchived: false,
+        ...(Object.keys(dateFilter).length > 0 ? { transactionDate: dateFilter } : {}),
+      },
+    });
+
     const result: Record<string, { income: number; expense: number; net: number }> = {};
 
-    for (const currency of currencies) {
-      const balance = await this.calculateBalance(userId, currency, dateFrom, dateTo);
-      if (balance.income > 0 || balance.expense > 0) {
-        result[currency] = balance;
-      }
+    for (const row of grouped) {
+      const amount = Number(row._sum.amount ?? 0);
+      if (amount === 0) continue;
+
+      const entry = result[row.currency] ?? { income: 0, expense: 0, net: 0 };
+      if (row.type === "INCOME") entry.income += amount;
+      else entry.expense += amount;
+      entry.net = entry.income - entry.expense;
+
+      result[row.currency] = entry;
     }
 
     return result;
@@ -256,7 +283,11 @@ export class TransactionsRepository {
     if (dateFrom) dateFilter.gte = dateFrom;
     if (dateTo) dateFilter.lte = dateTo;
 
-    const transactions = await this.prisma.transaction.findMany({
+    // Ilgari BARCHA tranzaksiyalar xotiraga yuklanib, JS'da yig'ilardi —
+    // yillik hisobotda bu o'n minglab qatorni anglatardi.
+    const grouped = (await this.prisma.transaction.groupBy({
+      by: ["categoryId"],
+      _sum: { amount: true },
       where: {
         createdBy: userId,
         type: type as "INCOME" | "EXPENSE",
@@ -265,39 +296,32 @@ export class TransactionsRepository {
         categoryId: { not: null },
         ...(Object.keys(dateFilter).length > 0 ? { transactionDate: dateFilter } : {}),
       },
-      select: {
-        amount: true,
-        categoryId: true,
-        category: {
-          select: { name: true, emoji: true },
-        },
-      },
-    });
+    })) as Array<{ categoryId: string | null; _sum: { amount: unknown } }>;
 
-    const grouped = new Map<string, { name: string; emoji: string; total: number }>();
+    const categoryIds = grouped
+      .map((row) => row.categoryId)
+      .filter((id): id is string => Boolean(id));
 
-    for (const tx of transactions as Array<{ amount: unknown; categoryId: string | null; category: { name: string; emoji: string } | null }>) {
-      if (!tx.categoryId || !tx.category) continue;
+    if (categoryIds.length === 0) return [];
 
-      const existing = grouped.get(tx.categoryId);
-      if (existing) {
-        existing.total += Number(tx.amount);
-      } else {
-        grouped.set(tx.categoryId, {
-          name: tx.category.name,
-          emoji: tx.category.emoji,
-          total: Number(tx.amount),
-        });
-      }
-    }
+    const categories = (await this.prisma.category.findMany({
+      where: { id: { in: categoryIds } },
+      select: { id: true, name: true, emoji: true },
+    })) as Array<{ id: string; name: string; emoji: string }>;
 
-    return Array.from(grouped.entries())
-      .map(([categoryId, data]) => ({
-        categoryId,
-        categoryName: data.name,
-        categoryEmoji: data.emoji,
-        total: data.total,
-      }))
+    const metaById = new Map(categories.map((c) => [c.id, c]));
+
+    return grouped
+      .map((row) => {
+        const meta = row.categoryId ? metaById.get(row.categoryId) : undefined;
+        return {
+          categoryId: row.categoryId ?? "",
+          categoryName: meta?.name ?? "Noma'lum",
+          categoryEmoji: meta?.emoji ?? "📝",
+          total: Number(row._sum.amount ?? 0),
+        };
+      })
+      .filter((row) => row.categoryId.length > 0)
       .sort((a, b) => b.total - a.total);
   }
 
@@ -306,7 +330,9 @@ export class TransactionsRepository {
     if (dateFrom) dateFilter.gte = dateFrom;
     if (dateTo) dateFilter.lte = dateTo;
 
-    const transactions = await this.prisma.transaction.findMany({
+    const grouped = (await this.prisma.transaction.groupBy({
+      by: ["sourceId"],
+      _sum: { amount: true },
       where: {
         createdBy: userId,
         type: type as "INCOME" | "EXPENSE",
@@ -315,39 +341,32 @@ export class TransactionsRepository {
         sourceId: { not: null },
         ...(Object.keys(dateFilter).length > 0 ? { transactionDate: dateFilter } : {}),
       },
-      select: {
-        amount: true,
-        sourceId: true,
-        source: {
-          select: { name: true, emoji: true },
-        },
-      },
-    });
+    })) as Array<{ sourceId: string | null; _sum: { amount: unknown } }>;
 
-    const grouped = new Map<string, { name: string; emoji: string; total: number }>();
+    const sourceIds = grouped
+      .map((row) => row.sourceId)
+      .filter((id): id is string => Boolean(id));
 
-    for (const tx of transactions) {
-      if (!tx.sourceId || !tx.source) continue;
+    if (sourceIds.length === 0) return [];
 
-      const existing = grouped.get(tx.sourceId);
-      if (existing) {
-        existing.total += Number(tx.amount);
-      } else {
-        grouped.set(tx.sourceId, {
-          name: tx.source.name,
-          emoji: tx.source.emoji,
-          total: Number(tx.amount),
-        });
-      }
-    }
+    const sources = (await this.prisma.source.findMany({
+      where: { id: { in: sourceIds } },
+      select: { id: true, name: true, emoji: true },
+    })) as Array<{ id: string; name: string; emoji: string }>;
 
-    return Array.from(grouped.entries())
-      .map(([sourceId, data]) => ({
-        sourceId,
-        sourceName: data.name,
-        sourceEmoji: data.emoji,
-        total: data.total,
-      }))
+    const metaById = new Map(sources.map((s) => [s.id, s]));
+
+    return grouped
+      .map((row) => {
+        const meta = row.sourceId ? metaById.get(row.sourceId) : undefined;
+        return {
+          sourceId: row.sourceId ?? "",
+          sourceName: meta?.name ?? "Noma'lum",
+          sourceEmoji: meta?.emoji ?? "💰",
+          total: Number(row._sum.amount ?? 0),
+        };
+      })
+      .filter((row) => row.sourceId.length > 0)
       .sort((a, b) => b.total - a.total);
   }
 }

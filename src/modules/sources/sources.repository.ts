@@ -119,37 +119,90 @@ export class SourcesRepository {
     });
   }
 
-  async calculateSourceBalance(sourceId: string, currency: string): Promise<{ income: number; expense: number; net: number }> {
-    const [incomeResult, expenseResult] = await Promise.all([
-      this.prisma.transaction.aggregate({
+  /**
+   * Bir nechta manba balansini BITTA groupBy so'rovida hisoblaydi
+   * (ilgari har bir manba uchun 2 ta aggregate — N+1 muammosi).
+   */
+  async calculateBalancesForSources(
+    sources: Array<{ id: string; currency: string }>,
+  ): Promise<Map<string, { income: number; expense: number; net: number }>> {
+    const balances = new Map<string, { income: number; expense: number; net: number }>();
+    for (const source of sources) {
+      balances.set(source.id, { income: 0, expense: 0, net: 0 });
+    }
+
+    if (sources.length === 0) {
+      return balances;
+    }
+
+    const currencyById = new Map(sources.map((s) => [s.id, s.currency]));
+
+    const ids = sources.map((s) => s.id);
+
+    const [direct, transfersOut, transfersIn] = await Promise.all([
+      this.prisma.transaction.groupBy({
+        by: ["sourceId", "type", "currency"],
         _sum: { amount: true },
         where: {
-          sourceId,
-          currency: currency as "UZS" | "USD" | "EUR" | "RUB" | "GBP" | "CNY",
-          type: "INCOME",
+          sourceId: { in: ids },
+          type: { in: ["INCOME", "EXPENSE"] },
           isCancelled: false,
           isArchived: false,
         },
-      }),
-      this.prisma.transaction.aggregate({
+      }) as Promise<Array<{ sourceId: string | null; type: string; currency: string; _sum: { amount: unknown } }>>,
+      this.prisma.transaction.groupBy({
+        by: ["transferSourceId", "currency"],
         _sum: { amount: true },
         where: {
-          sourceId,
-          currency: currency as "UZS" | "USD" | "EUR" | "RUB" | "GBP" | "CNY",
-          type: "EXPENSE",
+          transferSourceId: { in: ids },
+          type: "TRANSFER",
           isCancelled: false,
           isArchived: false,
         },
-      }),
+      }) as Promise<Array<{ transferSourceId: string | null; currency: string; _sum: { amount: unknown } }>>,
+      this.prisma.transaction.groupBy({
+        by: ["transferTargetId", "currency"],
+        _sum: { amount: true },
+        where: {
+          transferTargetId: { in: ids },
+          type: "TRANSFER",
+          isCancelled: false,
+          isArchived: false,
+        },
+      }) as Promise<Array<{ transferTargetId: string | null; currency: string; _sum: { amount: unknown } }>>,
     ]);
 
-    const income = Number(incomeResult._sum.amount ?? 0);
-    const expense = Number(expenseResult._sum.amount ?? 0);
+    const apply = (id: string | null, currency: string, amount: number, kind: "income" | "expense"): void => {
+      if (!id) return;
+      if (currencyById.get(id) !== currency) return;
 
-    return {
-      income,
-      expense,
-      net: income - expense,
+      const entry = balances.get(id);
+      if (!entry) return;
+
+      entry[kind] += amount;
+      entry.net = entry.income - entry.expense;
     };
+
+    for (const row of direct) {
+      apply(row.sourceId, row.currency, Number(row._sum.amount ?? 0), row.type === "INCOME" ? "income" : "expense");
+    }
+
+    // O'tkazmalar: chiquvchi manbadan yechiladi, qabul qiluvchiga qo'shiladi.
+    // Ilgari TRANSFER umuman hisobga olinmasdi va balanslar noto'g'ri chiqardi.
+    for (const row of transfersOut) {
+      apply(row.transferSourceId, row.currency, Number(row._sum.amount ?? 0), "expense");
+    }
+
+    for (const row of transfersIn) {
+      apply(row.transferTargetId, row.currency, Number(row._sum.amount ?? 0), "income");
+    }
+
+    return balances;
   }
+
+  async calculateSourceBalance(sourceId: string, currency: string): Promise<{ income: number; expense: number; net: number }> {
+    const balances = await this.calculateBalancesForSources([{ id: sourceId, currency }]);
+    return balances.get(sourceId) ?? { income: 0, expense: 0, net: 0 };
+  }
+
 }

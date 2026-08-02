@@ -1,8 +1,8 @@
 import type { SourcesRepository } from "./sources.repository.js";
 import type { AuditLogService } from "../users/audit-log.service.js";
 import type { CreateSourceInput, UpdateSourceInput, SourceFilterInput } from "./sources.types.js";
-import type { PaginationInput, PaginatedResult } from "../../shared/types/index.js";
-import { ROLE_PERMISSIONS, Permission } from "../../shared/types/index.js";
+import type { PaginationInput, PaginatedResult , Permission } from "../../shared/types/index.js";
+import { ROLE_PERMISSIONS } from "../../shared/types/index.js";
 import { ForbiddenError, NotFoundError, ConflictError } from "../../shared/errors/index.js";
 import { getLogger } from "../../shared/logger/index.js";
 
@@ -83,16 +83,15 @@ export class SourcesService {
 
     const result = await this.sourcesRepo.findAll(userId, pagination, filters);
 
-    const sourcesWithBalance = await Promise.all(
-      result.data.map(async (source: unknown) => {
-        const src = source as Record<string, unknown>;
-        const balance = await this.sourcesRepo.calculateSourceBalance(src.id as string, src.currency as string);
-        return this.mapSourceWithBalance(src, balance);
-      }),
+    const rows = result.data as unknown as Array<Record<string, unknown>>;
+    const balances = await this.sourcesRepo.calculateBalancesForSources(
+      rows.map((src) => ({ id: src.id as string, currency: src.currency as string })),
     );
 
     return {
-      data: sourcesWithBalance,
+      data: rows.map((src) =>
+        this.mapSourceWithBalance(src, balances.get(src.id as string) ?? { income: 0, expense: 0, net: 0 }),
+      ),
       pagination: result.pagination,
     };
   }
@@ -100,14 +99,16 @@ export class SourcesService {
   async listActive(userId: string, userRole: string): Promise<SourceWithBalance[]> {
     this.requirePermission(userRole, "SOURCES_READ");
 
-    const sources = await this.sourcesRepo.findActiveByUser(userId);
+    const sources = (await this.sourcesRepo.findActiveByUser(userId)) as unknown as Array<
+      Record<string, unknown>
+    >;
 
-    return Promise.all(
-      sources.map(async (source: unknown) => {
-        const src = source as Record<string, unknown>;
-        const balance = await this.sourcesRepo.calculateSourceBalance(src.id as string, src.currency as string);
-        return this.mapSourceWithBalance(src, balance);
-      }),
+    const balances = await this.sourcesRepo.calculateBalancesForSources(
+      sources.map((src) => ({ id: src.id as string, currency: src.currency as string })),
+    );
+
+    return sources.map((src) =>
+      this.mapSourceWithBalance(src, balances.get(src.id as string) ?? { income: 0, expense: 0, net: 0 }),
     );
   }
 
