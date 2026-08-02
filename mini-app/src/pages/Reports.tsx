@@ -3,10 +3,7 @@ import { useState } from "react";
 import { api } from "../services/api";
 import { SkeletonCard } from "../components/Skeleton";
 import type { Kpi } from "../types";
-
-function formatMoney(amount: number): string {
-  return new Intl.NumberFormat("uz-UZ").format(amount) + " UZS";
-}
+import { formatMoney } from "../utils/format";
 
 const periods = [
   { value: "today", label: "📅 Bugun" },

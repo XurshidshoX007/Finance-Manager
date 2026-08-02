@@ -3,10 +3,7 @@ import { useState } from "react";
 import { api } from "../services/api";
 import { SkeletonList } from "../components/Skeleton";
 import type { Category, PaginatedResult } from "../types";
-
-function formatMoney(amount: number): string {
-  return new Intl.NumberFormat("uz-UZ").format(amount) + " UZS";
-}
+import { formatMoney } from "../utils/format";
 
 export function Categories() {
   const [type, setType] = useState<"INCOME" | "EXPENSE">("EXPENSE");

@@ -3,10 +3,7 @@ import { useState } from "react";
 import { api } from "../services/api";
 import { SkeletonList } from "../components/Skeleton";
 import type { Transaction, PaginatedResult } from "../types";
-
-function formatMoney(amount: number, currency = "UZS"): string {
-  return new Intl.NumberFormat("uz-UZ").format(amount) + " " + currency;
-}
+import { formatMoney } from "../utils/format";
 
 const typeLabels: Record<string, string> = {
   INCOME: "🟢 Kirim",

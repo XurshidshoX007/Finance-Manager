@@ -2,10 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { api } from "../services/api";
 import { SkeletonCard } from "../components/Skeleton";
 import type { Dashboard as DashboardType } from "../types";
-
-function formatMoney(amount: number, currency = "UZS"): string {
-  return new Intl.NumberFormat("uz-UZ").format(amount) + " " + currency;
-}
+import { formatMoney } from "../utils/format";
 
 export function Dashboard() {
   const { data, isLoading, error } = useQuery<DashboardType>({

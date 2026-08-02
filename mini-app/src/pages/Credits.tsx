@@ -2,10 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { api } from "../services/api";
 import { SkeletonList } from "../components/Skeleton";
 import type { Credit, PaginatedResult } from "../types";
-
-function formatMoney(amount: number, currency = "UZS"): string {
-  return new Intl.NumberFormat("uz-UZ").format(amount) + " " + currency;
-}
+import { formatMoney } from "../utils/format";
 
 const statusLabels: Record<string, { label: string; color: string }> = {
   ACTIVE: { label: "🟢 Faol", color: "text-green-600" },
