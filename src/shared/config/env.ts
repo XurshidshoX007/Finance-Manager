@@ -1,7 +1,9 @@
 import { z } from "zod";
 
 const envSchema = z.object({
-  NODE_ENV: z.enum(["development", "staging", "production"]).default("development"),
+  // "test" ham qo'shildi: testlar `NODE_ENV=test` bilan ishlaydi va
+  // ilgari konfiguratsiya validatsiyasi shu sababli yiqilardi.
+  NODE_ENV: z.enum(["development", "test", "staging", "production"]).default("development"),
   APP_PORT: z.coerce.number().default(3000),
   APP_URL: z.string().default("http://localhost:3000"),
 
@@ -25,7 +27,8 @@ const envSchema = z.object({
   BACKUP_DIR: z.string().default("./backups"),
   BACKUP_RETENTION_DAYS: z.coerce.number().default(30),
 
-  LOG_LEVEL: z.enum(["trace", "debug", "info", "warn", "error", "fatal"]).default("info"),
+  // "silent" — testlarda log chiqmasligi uchun
+  LOG_LEVEL: z.enum(["trace", "debug", "info", "warn", "error", "fatal", "silent"]).default("info"),
 });
 
 export type EnvConfig = z.infer<typeof envSchema>;

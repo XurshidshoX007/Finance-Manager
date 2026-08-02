@@ -6,6 +6,7 @@ export default defineConfig({
     globals: true,
     environment: "node",
     include: ["src/**/*.test.ts"],
+    setupFiles: ["src/tests/setup.ts"],
   },
   resolve: {
     extensions: [".ts", ".js", ".mjs"],
