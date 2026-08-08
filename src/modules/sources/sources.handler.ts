@@ -5,6 +5,8 @@ import { createSourceSchema } from "./sources.types.js";
 import { createPaginationInput } from "../../shared/utils/index.js";
 import { formatMoney } from "../../shared/utils/index.js";
 
+type NextFunction = () => Promise<void>;
+
 const userSessions = new Map<string, { creatingSource: boolean }>();
 
 export class SourcesHandler {
@@ -136,11 +138,15 @@ export class SourcesHandler {
       "Bekor qilish uchun /cancel buyrug'ini yuboring",
     );
     userSessions.set(ctx.appState.userId, { creatingSource: true });
+    await ctx.answerCallbackQuery();
   }
 
-  private async handleCreateInput(ctx: CustomContext): Promise<void> {
+  private async handleCreateInput(ctx: CustomContext, next: NextFunction): Promise<void> {
     const session = userSessions.get(ctx.appState.userId);
-    if (!session?.creatingSource) return;
+    if (!session?.creatingSource) {
+      await next();
+      return;
+    }
 
     const text = ctx.message?.text;
     if (!text) return;
@@ -148,6 +154,11 @@ export class SourcesHandler {
     if (text === "/cancel") {
       userSessions.delete(ctx.appState.userId);
       await ctx.reply("❌ Manba yaratish bekor qilindi.");
+      return;
+    }
+
+    if (text.startsWith("/")) {
+      await ctx.reply("Manba nomini yuboring yoki bekor qilish uchun /cancel buyrug'ini yozing.");
       return;
     }
 

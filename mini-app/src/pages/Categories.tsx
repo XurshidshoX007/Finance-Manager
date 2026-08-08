@@ -56,9 +56,9 @@ export function Categories() {
                 <span className="text-xl">{cat.emoji}</span>
                 <div>
                   <p className="font-medium">{cat.name}</p>
-                  {cat.groupName && (
-                    <p className="text-xs text-[var(--tg-theme-hint-color)]">📁 {cat.groupName}</p>
-                  )}
+                  <p className="text-xs text-[var(--tg-theme-hint-color)]">
+                    {cat.isSystem ? "🌐 Umumiy" : cat.groupName ? `📁 ${cat.groupName}` : "👤 Shaxsiy"}
+                  </p>
                 </div>
               </div>
               <div className="text-right">

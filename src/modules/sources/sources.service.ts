@@ -2,7 +2,8 @@ import type { SourcesRepository } from "./sources.repository.js";
 import type { AuditLogService } from "../users/audit-log.service.js";
 import type { CreateSourceInput, UpdateSourceInput, SourceFilterInput } from "./sources.types.js";
 import type { PaginationInput, PaginatedResult } from "../../shared/types/index.js";
-import { ROLE_PERMISSIONS, Permission } from "../../shared/types/index.js";
+import type { Permission } from "../../shared/types/index.js";
+import { ROLE_PERMISSIONS } from "../../shared/types/index.js";
 import { ForbiddenError, NotFoundError, ConflictError } from "../../shared/errors/index.js";
 import { getLogger } from "../../shared/logger/index.js";
 

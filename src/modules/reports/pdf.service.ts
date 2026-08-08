@@ -74,8 +74,7 @@ export class PdfService {
       doc.fontSize(16).fillColor("#1a237e").text("Top Kategoriyalar");
       doc.moveDown(0.5);
 
-      for (let i = 0; i < Math.min(report.topCategories.length, 10); i++) {
-        const cat = report.topCategories[i]!;
+      for (const cat of report.topCategories.slice(0, 10)) {
         const barWidth = Math.max(10, (cat.percentage / 100) * 400);
 
         doc.fontSize(10).fillColor("#333333").text(`${cat.emoji} ${cat.name}`, 50, doc.y, { continued: true });
@@ -92,8 +91,7 @@ export class PdfService {
       doc.fontSize(16).fillColor("#1a237e").text("Top Manbalar");
       doc.moveDown(0.5);
 
-      for (let i = 0; i < Math.min(report.topSources.length, 10); i++) {
-        const src = report.topSources[i]!;
+      for (const src of report.topSources.slice(0, 10)) {
         const barWidth = Math.max(10, (src.percentage / 100) * 400);
 
         doc.fontSize(10).fillColor("#333333").text(`${src.emoji} ${src.name}`, 50, doc.y, { continued: true });
@@ -151,20 +149,20 @@ export class PdfService {
 
     let x = 50;
     doc.rect(50, tableTop, 750, 25).fillColor("#1a237e").fill();
-    for (let i = 0; i < headers.length; i++) {
-      doc.fontSize(9).fillColor("#ffffff").text(headers[i]!, x + 5, tableTop + 7, { width: colWidths[i]! });
-      x += colWidths[i]!;
-    }
+    headers.forEach((header, index) => {
+      const width = colWidths[index] ?? 0;
+      doc.fontSize(9).fillColor("#ffffff").text(header, x + 5, tableTop + 7, { width });
+      x += width;
+    });
 
     let rowY = tableTop + 30;
-    for (let i = 0; i < Math.min(transactions.length, 50); i++) {
-      const tx = transactions[i]!;
+    for (const [index, tx] of transactions.slice(0, 50).entries()) {
       if (rowY > 550) {
         doc.addPage();
         rowY = 50;
       }
 
-      if (i % 2 === 0) {
+      if (index % 2 === 0) {
         doc.rect(50, rowY - 3, 750, 22).fillColor("#f5f5f5").fill();
       }
 
@@ -179,10 +177,11 @@ export class PdfService {
         tx.isCancelled ? "Bekor" : "Faol",
       ];
 
-      for (let j = 0; j < rowData.length; j++) {
-        doc.fontSize(8).fillColor(tx.isCancelled ? "#999999" : "#333333").text(rowData[j]!, x + 5, rowY, { width: colWidths[j]! });
-        x += colWidths[j]!;
-      }
+      rowData.forEach((value, index) => {
+        const width = colWidths[index] ?? 0;
+        doc.fontSize(8).fillColor(tx.isCancelled ? "#999999" : "#333333").text(value, x + 5, rowY, { width });
+        x += width;
+      });
 
       rowY += 22;
     }

@@ -69,7 +69,7 @@ export function createApiRoutes(services: ApiServices): Router {
     try {
       const userId = req.headers["x-user-id"] as string;
       const userRole = req.headers["x-user-role"] as string;
-      const result = await services.sourcesService.getById(req.params.id!, userId, userRole);
+      const result = await services.sourcesService.getById(req.params["id"] as string, userId, userRole);
       res.json({ success: true, data: result });
     } catch (error) { next(error); }
   });
@@ -87,7 +87,7 @@ export function createApiRoutes(services: ApiServices): Router {
     try {
       const userId = req.headers["x-user-id"] as string;
       const userRole = req.headers["x-user-role"] as string;
-      const result = await services.sourcesService.update(userId, userRole, req.params.id!, req.body);
+      const result = await services.sourcesService.update(userId, userRole, req.params["id"] as string, req.body);
       res.json({ success: true, data: result });
     } catch (error) { next(error); }
   });
@@ -96,7 +96,7 @@ export function createApiRoutes(services: ApiServices): Router {
     try {
       const userId = req.headers["x-user-id"] as string;
       const userRole = req.headers["x-user-role"] as string;
-      await services.sourcesService.archive(userId, userRole, req.params.id!);
+      await services.sourcesService.archive(userId, userRole, req.params["id"] as string);
       res.json({ success: true, message: "Source archived" });
     } catch (error) { next(error); }
   });
@@ -114,7 +114,7 @@ export function createApiRoutes(services: ApiServices): Router {
       const userRole = req.headers["x-user-role"] as string;
       const pagination = createPaginationInput(
         Number(req.query["page"]) || 1,
-        Number(req.query["limit"]) || 20,
+        Number(req.query["limit"]) || 50,
       );
       const result = await services.categoriesService.list(userId, userRole, pagination, {
         type: req.query["type"] as "INCOME" | "EXPENSE" | undefined,
@@ -137,7 +137,7 @@ export function createApiRoutes(services: ApiServices): Router {
     try {
       const userId = req.headers["x-user-id"] as string;
       const userRole = req.headers["x-user-role"] as string;
-      const result = await services.categoriesService.update(userId, userRole, req.params.id!, req.body);
+      const result = await services.categoriesService.update(userId, userRole, req.params["id"] as string, req.body);
       res.json({ success: true, data: result });
     } catch (error) { next(error); }
   });
@@ -146,7 +146,7 @@ export function createApiRoutes(services: ApiServices): Router {
     try {
       const userId = req.headers["x-user-id"] as string;
       const userRole = req.headers["x-user-role"] as string;
-      await services.categoriesService.archive(userId, userRole, req.params.id!);
+      await services.categoriesService.archive(userId, userRole, req.params["id"] as string);
       res.json({ success: true, message: "Category archived" });
     } catch (error) { next(error); }
   });
@@ -181,7 +181,7 @@ export function createApiRoutes(services: ApiServices): Router {
     try {
       const userId = req.headers["x-user-id"] as string;
       const userRole = req.headers["x-user-role"] as string;
-      const result = await services.transactionsService.getById(req.params.id!, userId, userRole);
+      const result = await services.transactionsService.getById(req.params["id"] as string, userId, userRole);
       res.json({ success: true, data: result });
     } catch (error) { next(error); }
   });
@@ -208,7 +208,7 @@ export function createApiRoutes(services: ApiServices): Router {
     try {
       const userId = req.headers["x-user-id"] as string;
       const userRole = req.headers["x-user-role"] as string;
-      await services.transactionsService.cancel(userId, userRole, req.params.id!, req.body);
+      await services.transactionsService.cancel(userId, userRole, req.params["id"] as string, req.body);
       res.json({ success: true, message: "Transaction cancelled" });
     } catch (error) { next(error); }
   });
@@ -263,7 +263,7 @@ export function createApiRoutes(services: ApiServices): Router {
     try {
       const userId = req.headers["x-user-id"] as string;
       const userRole = req.headers["x-user-role"] as string;
-      await services.creditsService.earlyPayment(userId, userRole, req.params.id!, req.body);
+      await services.creditsService.earlyPayment(userId, userRole, req.params["id"] as string, req.body);
       res.json({ success: true, message: "Early payment processed" });
     } catch (error) { next(error); }
   });
@@ -396,7 +396,7 @@ export function createApiRoutes(services: ApiServices): Router {
   usersRouter.put("/:id/role", async (req, res, next) => {
     try {
       const userId = req.headers["x-user-id"] as string;
-      await services.usersService.changeRole(userId, req.params.id!, req.body.role);
+      await services.usersService.changeRole(userId, req.params["id"] as string, req.body.role);
       res.json({ success: true, message: "Role updated" });
     } catch (error) { next(error); }
   });

@@ -20,6 +20,7 @@ export interface Category {
   description: string | null;
   groupId: string | null;
   groupName: string | null;
+  isSystem: boolean;
   stats: { total: number; count: number };
 }
 

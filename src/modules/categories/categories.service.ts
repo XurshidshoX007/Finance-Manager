@@ -2,7 +2,8 @@ import type { CategoriesRepository } from "./categories.repository.js";
 import type { AuditLogService } from "../users/audit-log.service.js";
 import type { CreateCategoryInput, UpdateCategoryInput, CategoryFilterInput, CreateCategoryGroupInput } from "./categories.types.js";
 import type { PaginationInput, PaginatedResult } from "../../shared/types/index.js";
-import { ROLE_PERMISSIONS, Permission } from "../../shared/types/index.js";
+import type { Permission } from "../../shared/types/index.js";
+import { ROLE_PERMISSIONS } from "../../shared/types/index.js";
 import { ForbiddenError, NotFoundError, ConflictError } from "../../shared/errors/index.js";
 import { getLogger } from "../../shared/logger/index.js";
 
@@ -15,6 +16,7 @@ interface CategoryWithStats {
   description: string | null;
   groupId: string | null;
   groupName: string | null;
+  isSystem: boolean;
   stats: { total: number; count: number };
   createdAt: Date;
   updatedAt: Date;
@@ -73,6 +75,7 @@ export class CategoriesService {
       description: category.description,
       groupId: category.groupId,
       groupName: null,
+      isSystem: category.isSystem,
       stats: { total: 0, count: 0 },
       createdAt: category.createdAt,
       updatedAt: category.updatedAt,
@@ -109,7 +112,7 @@ export class CategoriesService {
       throw new NotFoundError("Category", id);
     }
 
-    const stats = await this.categoriesRepo.calculateCategoryStats(category.id, "UZS");
+    const stats = await this.categoriesRepo.calculateCategoryStats(category.id, "UZS", userId);
 
     return this.mapCategoryWithStats(category as unknown as Record<string, unknown>, stats);
   }
@@ -127,7 +130,7 @@ export class CategoriesService {
     const categoriesWithStats = await Promise.all(
       result.data.map(async (category: unknown) => {
         const cat = category as Record<string, unknown>;
-        const stats = await this.categoriesRepo.calculateCategoryStats(cat.id as string, "UZS");
+        const stats = await this.categoriesRepo.calculateCategoryStats(cat.id as string, "UZS", userId);
         return this.mapCategoryWithStats(cat, stats);
       }),
     );
@@ -145,7 +148,7 @@ export class CategoriesService {
 
     return Promise.all(
       categories.map(async (category: Record<string, unknown>) => {
-        const stats = await this.categoriesRepo.calculateCategoryStats(category.id as string, "UZS");
+        const stats = await this.categoriesRepo.calculateCategoryStats(category.id as string, "UZS", userId);
         return this.mapCategoryWithStats(category, stats);
       }),
     );
@@ -178,10 +181,21 @@ export class CategoriesService {
       throw new NotFoundError("Category", id);
     }
 
+    if (category.isSystem) {
+      throw new ForbiddenError("Default categories cannot be updated");
+    }
+
     if (input.name && input.name !== category.name) {
       const existing = await this.categoriesRepo.findByNameAndUser(input.name, category.type, userId);
       if (existing) {
         throw new ConflictError(`Category with name '${input.name}' already exists`);
+      }
+    }
+
+    if (input.groupId) {
+      const group = await this.categoriesRepo.findGroupById(input.groupId);
+      if (!group || group.createdBy !== userId) {
+        throw new NotFoundError("Category group", input.groupId);
       }
     }
 
@@ -193,7 +207,7 @@ export class CategoriesService {
 
     this.logger.info({ categoryId: id, userId }, "Category updated");
 
-    const stats = await this.categoriesRepo.calculateCategoryStats(updated.id, "UZS");
+    const stats = await this.categoriesRepo.calculateCategoryStats(updated.id, "UZS", userId);
 
     return {
       id: updated.id,
@@ -204,6 +218,7 @@ export class CategoriesService {
       description: updated.description,
       groupId: updated.groupId,
       groupName: null,
+      isSystem: updated.isSystem,
       stats,
       createdAt: updated.createdAt,
       updatedAt: updated.updatedAt,
@@ -218,6 +233,10 @@ export class CategoriesService {
       throw new NotFoundError("Category", id);
     }
 
+    if (category.isSystem) {
+      throw new ForbiddenError("Default categories cannot be archived");
+    }
+
     await this.categoriesRepo.archive(id);
 
     await this.auditLogService.logArchive(userId, "CATEGORY", id, {
@@ -230,8 +249,8 @@ export class CategoriesService {
   async restore(userId: string, userRole: string, id: string): Promise<void> {
     this.requirePermission(userRole, "CATEGORIES_DELETE");
 
-    const category = await this.categoriesRepo.findById(id);
-    if (!category || !category.isArchived) {
+    const category = await this.categoriesRepo.findArchivedByIdAndUser(id, userId);
+    if (!category) {
       throw new NotFoundError("Archived category", id);
     }
 
@@ -255,6 +274,7 @@ export class CategoriesService {
       description: category.description as string | null,
       groupId: category.groupId as string | null,
       groupName: group?.name as string | null,
+      isSystem: Boolean(category.isSystem),
       stats,
       createdAt: category.createdAt as Date,
       updatedAt: category.updatedAt as Date,

@@ -155,19 +155,22 @@ model Category {
   type        TransactionType
   description String?
   groupId     String?
-  createdBy   String
+  createdBy   String?
+  isSystem    Boolean       @default(false)
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
   archivedAt  DateTime?
   isArchived  Boolean       @default(false)
 
   // Relations
-  user         User          @relation(fields: [createdBy], references: [id])
+  user         User?         @relation(fields: [createdBy], references: [id])
   group        CategoryGroup? @relation(fields: [groupId], references: [id])
   transactions Transaction[]
 
   @@unique([createdBy, name, type, isArchived])
   @@index([createdBy])
+  @@index([isSystem])
+  @@index([createdBy, isArchived, type, groupId])
   @@index([type])
   @@map("categories")
 }
@@ -212,6 +215,7 @@ model Transaction {
   @@index([transactionDate])
   @@index([sourceId])
   @@index([categoryId])
+  @@index([categoryId, currency, isCancelled, isArchived])
   @@index([isCancelled])
   @@map("transactions")
 }

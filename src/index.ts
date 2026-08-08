@@ -243,12 +243,13 @@ async function main(): Promise<void> {
   // WEBHOOK OR POLLING
   // ============================================
 
-  if (config.BOT_WEBHOOK_URL) {
-    logger.info({ webhookUrl: config.BOT_WEBHOOK_URL }, "Starting in webhook mode");
+  const webhookUrl = config.BOT_WEBHOOK_URL;
+  if (webhookUrl) {
+    logger.info({ webhookUrl }, "Starting in webhook mode");
 
     app.use(config.BOT_WEBHOOK_PATH, async (req, res) => {
       try {
-        await bot.api.setWebhook(config.BOT_WEBHOOK_URL!, {
+        await bot.api.setWebhook(webhookUrl, {
           secret_token: config.BOT_SECRET_TOKEN,
         });
         await bot.handleUpdate(req.body);
