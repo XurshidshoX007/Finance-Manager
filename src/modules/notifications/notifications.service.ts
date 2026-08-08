@@ -12,6 +12,17 @@ interface NotificationItem {
   createdAt: Date;
 }
 
+interface CreditReminderSchedule {
+  id: string;
+  paymentDate: Date;
+  totalPayment: unknown;
+  credit: {
+    name: string;
+    createdBy: string;
+    user: { telegramId: bigint };
+  };
+}
+
 export class NotificationsService {
   private readonly notificationsRepo: NotificationsRepository;
   private readonly logger = getLogger("notifications-service");
@@ -93,12 +104,12 @@ export class NotificationsService {
   }>> {
     const schedules = await this.notificationsRepo.findPendingCreditReminders();
 
-    return schedules.map((s: { id: string; paymentDate: Date; totalPayment: unknown; credit: { name: string; userId: string; user: { telegramId: bigint } } }) => ({
+    return schedules.map((s: CreditReminderSchedule) => ({
       scheduleId: s.id,
       creditName: s.credit.name,
       paymentDate: s.paymentDate,
       totalPayment: String(s.totalPayment),
-      userId: s.credit.userId,
+      userId: s.credit.createdBy,
       telegramId: s.credit.user.telegramId,
     }));
   }

@@ -3,6 +3,16 @@ import { getLogger } from "../logger/index.js";
 
 let prisma: PrismaClient | null = null;
 
+type PrismaLogEventName = "query" | "error" | "warn";
+type PrismaLogEvent = {
+  query?: string;
+  params?: string;
+  duration?: number;
+};
+type PrismaClientWithEvents = Omit<PrismaClient, "$on"> & {
+  $on: (event: PrismaLogEventName, callback: (event: PrismaLogEvent) => void) => void;
+};
+
 export function createPrismaClient(): PrismaClient {
   if (prisma) {
     return prisma;
@@ -27,8 +37,9 @@ export function createPrismaClient(): PrismaClient {
     ],
   });
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  prisma.$on("query", (e: any) => {
+  const prismaWithEvents = prisma as PrismaClientWithEvents;
+
+  prismaWithEvents.$on("query", (e) => {
     logger.debug(
       {
         query: e.query,
@@ -39,13 +50,11 @@ export function createPrismaClient(): PrismaClient {
     );
   });
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  prisma.$on("error", (e: any) => {
+  prismaWithEvents.$on("error", (e) => {
     logger.error({ error: e }, "Prisma error");
   });
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  prisma.$on("warn", (e: any) => {
+  prismaWithEvents.$on("warn", (e) => {
     logger.warn({ warning: e }, "Prisma warning");
   });
 

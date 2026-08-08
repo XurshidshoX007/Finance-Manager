@@ -17,7 +17,7 @@ export class AuditLogRepository {
         action: entry.action,
         entity: entry.entity,
         entityId: entry.entityId,
-        details: entry.details ?? undefined,
+        details: entry.details as never,
       },
     });
   }
