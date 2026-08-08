@@ -160,7 +160,7 @@ async function main(): Promise<void> {
   const categoriesHandler = new CategoriesHandler(bot, categoriesService);
   categoriesHandler.register();
 
-  const transactionsHandler = new TransactionsHandler(bot, transactionsService);
+  const transactionsHandler = new TransactionsHandler(bot, transactionsService, categoriesService);
   transactionsHandler.register();
 
   const creditsHandler = new CreditsHandler(bot, creditsService);

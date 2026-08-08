@@ -1,18 +1,33 @@
 import type { Bot } from "grammy";
 import type { CustomContext } from "../auth/auth.middleware.js";
+import type { CategoriesService } from "../categories/categories.service.js";
 import type { TransactionsService } from "./transactions.service.js";
 import { createPaginationInput } from "../../shared/utils/index.js";
 import { formatMoney } from "../../shared/utils/index.js";
 
-const userSessions = new Map<string, { type: string; step: string }>();
+type TransactionType = "INCOME" | "EXPENSE" | "TRANSFER";
+type TransactionSession = {
+  type: TransactionType;
+  step: "amount" | "category";
+  amount?: string;
+};
+type NextFunction = () => Promise<void>;
+
+const userSessions = new Map<string, TransactionSession>();
 
 export class TransactionsHandler {
   private readonly bot: Bot<CustomContext>;
   private readonly transactionsService: TransactionsService;
+  private readonly categoriesService: CategoriesService;
 
-  constructor(bot: Bot<CustomContext>, transactionsService: TransactionsService) {
+  constructor(
+    bot: Bot<CustomContext>,
+    transactionsService: TransactionsService,
+    categoriesService: CategoriesService,
+  ) {
     this.bot = bot;
     this.transactionsService = transactionsService;
+    this.categoriesService = categoriesService;
   }
 
   register(): void {
@@ -24,6 +39,10 @@ export class TransactionsHandler {
     this.bot.callbackQuery("tx:expense:start", this.handleExpenseStart.bind(this));
     this.bot.callbackQuery("tx:transfer:start", this.handleTransferStart.bind(this));
     this.bot.callbackQuery("tx:balance", this.handleBalance.bind(this));
+    this.bot.callbackQuery(/^tx:create:category:/, this.handleCategorySelected.bind(this));
+    this.bot.callbackQuery("tx:create:nocategory", this.handleNoCategorySelected.bind(this));
+    this.bot.callbackQuery("tx:create:cancel", this.handleCreateCancel.bind(this));
+    this.bot.on("message", this.handleCreateInput.bind(this));
   }
 
   async showList(ctx: CustomContext): Promise<void> {
@@ -173,42 +192,151 @@ export class TransactionsHandler {
   }
 
   private async handleIncomeStart(ctx: CustomContext): Promise<void> {
-    await ctx.reply(
-      "🟢 Yangi kirim qo'shish\n\n" +
-      "Miqdorni yuboring:\n" +
-      "Masalan: 500000\n\n" +
-      "Bekor qilish uchun /cancel buyrug'ini yuboring",
-    );
-    userSessions.set(ctx.appState.userId, { type: "INCOME", step: "amount" });
-    if (ctx.callbackQuery) {
-      await ctx.answerCallbackQuery();
-    }
+    await this.startAmountInput(ctx, "INCOME");
   }
 
   private async handleExpenseStart(ctx: CustomContext): Promise<void> {
+    await this.startAmountInput(ctx, "EXPENSE");
+  }
+
+  private async handleTransferStart(ctx: CustomContext): Promise<void> {
+    await this.startAmountInput(ctx, "TRANSFER");
+  }
+
+  private async startAmountInput(ctx: CustomContext, type: TransactionType): Promise<void> {
+    const title = type === "INCOME" ? "🟢 Yangi kirim qo'shish" : type === "EXPENSE" ? "🔴 Yangi chiqim qo'shish" : "🔄 Yangi o'tkazma qo'shish";
+    const example = type === "EXPENSE" ? "50000" : "500000";
+
     await ctx.reply(
-      "🔴 Yangi chiqim qo'shish\n\n" +
+      `${title}\n\n` +
       "Miqdorni yuboring:\n" +
-      "Masalan: 50000\n\n" +
+      `Masalan: ${example}\n\n` +
       "Bekor qilish uchun /cancel buyrug'ini yuboring",
     );
-    userSessions.set(ctx.appState.userId, { type: "EXPENSE", step: "amount" });
+    userSessions.set(ctx.appState.userId, { type, step: "amount" });
     if (ctx.callbackQuery) {
       await ctx.answerCallbackQuery();
     }
   }
 
-  private async handleTransferStart(ctx: CustomContext): Promise<void> {
-    await ctx.reply(
-      "🔄 Yangi o'tkazma qo'shish\n\n" +
-      "Miqdorni yuboring:\n" +
-      "Masalan: 100000\n\n" +
-      "Bekor qilish uchun /cancel buyrug'ini yuboring",
-    );
-    userSessions.set(ctx.appState.userId, { type: "TRANSFER", step: "amount" });
-    if (ctx.callbackQuery) {
-      await ctx.answerCallbackQuery();
+  private async handleCreateInput(ctx: CustomContext, next: NextFunction): Promise<void> {
+    const session = userSessions.get(ctx.appState.userId);
+    if (!session) {
+      await next();
+      return;
     }
+
+    const text = ctx.message?.text;
+    if (!text) return;
+
+    if (text === "/cancel") {
+      userSessions.delete(ctx.appState.userId);
+      await ctx.reply("❌ Tranzaksiya yaratish bekor qilindi.");
+      return;
+    }
+
+    if (text.startsWith("/")) {
+      await ctx.reply("Miqdorni yuboring yoki bekor qilish uchun /cancel buyrug'ini yozing.");
+      return;
+    }
+
+    if (session.step !== "amount") {
+      await ctx.reply("Iltimos, pastdagi tugmalardan kategoriya tanlang yoki /cancel yuboring.");
+      return;
+    }
+
+    const amount = this.parseAmount(text);
+    if (!amount) {
+      await ctx.reply("❌ Miqdor noto'g'ri. Masalan: 50000 yoki 50 000\n\nQaytadan kiriting yoki /cancel");
+      return;
+    }
+
+    if (session.type === "TRANSFER") {
+      userSessions.delete(ctx.appState.userId);
+      await ctx.reply(
+        "⚠️ O'tkazma uchun manba va qabul qiluvchi manba tanlash kerak.\n" +
+        "Hozircha bot orqali kirim/chiqim qo'shing yoki o'tkazmani Mini App/API orqali kiriting.",
+      );
+      return;
+    }
+
+    userSessions.set(ctx.appState.userId, { ...session, step: "category", amount });
+    await this.sendCategorySelection(ctx, session.type);
+  }
+
+  private async sendCategorySelection(ctx: CustomContext, type: "INCOME" | "EXPENSE"): Promise<void> {
+    const categories = await this.categoriesService.listActive(ctx.appState.userId, ctx.appState.userRole, type);
+    const buttons = categories.map((category) => [{
+      text: `${category.emoji} ${category.name}${category.isSystem ? " 🌐" : ""}`,
+      callback_data: `tx:create:category:${category.id}`,
+    }]);
+
+    buttons.push([{ text: "➖ Kategoriyasiz", callback_data: "tx:create:nocategory" }]);
+    buttons.push([{ text: "❌ Bekor qilish", callback_data: "tx:create:cancel" }]);
+
+    await ctx.reply(
+      "📂 Kategoriyani tanlang:\n\n" +
+      "Agar mos kategoriya bo'lmasa, 'Kategoriyasiz' tugmasini bosing.",
+      { reply_markup: { inline_keyboard: buttons } },
+    );
+  }
+
+  private async handleCategorySelected(ctx: CustomContext): Promise<void> {
+    const categoryId = ctx.callbackQuery?.data?.split(":")[3];
+    if (!categoryId) {
+      await ctx.answerCallbackQuery("❌ Noto'g'ri kategoriya");
+      return;
+    }
+
+    await this.createFromSession(ctx, categoryId);
+  }
+
+  private async handleNoCategorySelected(ctx: CustomContext): Promise<void> {
+    await this.createFromSession(ctx);
+  }
+
+  private async handleCreateCancel(ctx: CustomContext): Promise<void> {
+    userSessions.delete(ctx.appState.userId);
+    await ctx.answerCallbackQuery("❌ Bekor qilindi");
+    await ctx.reply("❌ Tranzaksiya yaratish bekor qilindi.");
+  }
+
+  private async createFromSession(ctx: CustomContext, categoryId?: string): Promise<void> {
+    const session = userSessions.get(ctx.appState.userId);
+    if (!session?.amount || session.step !== "category" || session.type === "TRANSFER") {
+      await ctx.answerCallbackQuery("❌ Sessiya topilmadi. Qaytadan boshlang.");
+      return;
+    }
+
+    try {
+      const transaction = await this.transactionsService.create(ctx.appState.userId, ctx.appState.userRole, {
+        type: session.type,
+        amount: session.amount,
+        currency: "UZS",
+        categoryId,
+      });
+
+      userSessions.delete(ctx.appState.userId);
+      await ctx.answerCallbackQuery("✅ Saqlandi");
+      await ctx.reply(
+        "✅ Tranzaksiya saqlandi!\n\n" +
+        `${transaction.type === "INCOME" ? "🟢 Kirim" : "🔴 Chiqim"}: ${formatMoney(Number(transaction.amount), transaction.currency)}\n` +
+        (transaction.category ? `📂 ${transaction.category.emoji} ${transaction.category.name}` : "📂 Kategoriyasiz"),
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Xatolik yuz berdi";
+      await ctx.answerCallbackQuery("❌ Xatolik");
+      await ctx.reply(`❌ ${message}\n\nQaytadan urinib ko'ring yoki /cancel`);
+    }
+  }
+
+  private parseAmount(value: string): string | null {
+    const normalized = value.trim().replace(/\s/g, "").replace(",", ".");
+    const amount = Number(normalized);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      return null;
+    }
+    return normalized;
   }
 
   private async handleBalance(ctx: CustomContext): Promise<void> {
