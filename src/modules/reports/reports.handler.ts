@@ -19,8 +19,12 @@ export class ReportsHandler {
     this.bot.callbackQuery("reports:kpi", this.handleKpi.bind(this));
   }
 
-  private async handleDashboard(ctx: CustomContext): Promise<void> {
+  async showDashboard(ctx: CustomContext): Promise<void> {
     await this.sendDashboard(ctx);
+  }
+
+  private async handleDashboard(ctx: CustomContext): Promise<void> {
+    await this.showDashboard(ctx);
   }
 
   private async handleDashboardCallback(ctx: CustomContext): Promise<void> {

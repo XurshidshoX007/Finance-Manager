@@ -19,8 +19,12 @@ export class CreditsHandler {
     bot.callbackQuery("credits:stats", this.handleStats.bind(this));
   }
 
-  private async handleList(ctx: CustomContext): Promise<void> {
+  async showList(ctx: CustomContext): Promise<void> {
     await this.sendCreditsList(ctx);
+  }
+
+  private async handleList(ctx: CustomContext): Promise<void> {
+    await this.showList(ctx);
   }
 
   private async handleListCallback(ctx: CustomContext): Promise<void> {

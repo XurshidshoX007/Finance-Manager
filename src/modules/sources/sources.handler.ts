@@ -27,8 +27,12 @@ export class SourcesHandler {
     this.bot.on("message", this.handleCreateInput.bind(this));
   }
 
-  private async handleList(ctx: CustomContext): Promise<void> {
+  async showList(ctx: CustomContext): Promise<void> {
     await this.sendSourcesList(ctx);
+  }
+
+  private async handleList(ctx: CustomContext): Promise<void> {
+    await this.showList(ctx);
   }
 
   private async handleListCallback(ctx: CustomContext): Promise<void> {

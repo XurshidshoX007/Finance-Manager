@@ -26,8 +26,28 @@ export class TransactionsHandler {
     this.bot.callbackQuery("tx:balance", this.handleBalance.bind(this));
   }
 
-  private async handleList(ctx: CustomContext): Promise<void> {
+  async showList(ctx: CustomContext): Promise<void> {
     await this.sendTransactionsList(ctx);
+  }
+
+  async startIncome(ctx: CustomContext): Promise<void> {
+    await this.handleIncomeStart(ctx);
+  }
+
+  async startExpense(ctx: CustomContext): Promise<void> {
+    await this.handleExpenseStart(ctx);
+  }
+
+  async startTransfer(ctx: CustomContext): Promise<void> {
+    await this.handleTransferStart(ctx);
+  }
+
+  async showBalance(ctx: CustomContext): Promise<void> {
+    await this.handleBalance(ctx);
+  }
+
+  private async handleList(ctx: CustomContext): Promise<void> {
+    await this.showList(ctx);
   }
 
   private async handleListCallback(ctx: CustomContext): Promise<void> {
@@ -160,6 +180,9 @@ export class TransactionsHandler {
       "Bekor qilish uchun /cancel buyrug'ini yuboring",
     );
     userSessions.set(ctx.appState.userId, { type: "INCOME", step: "amount" });
+    if (ctx.callbackQuery) {
+      await ctx.answerCallbackQuery();
+    }
   }
 
   private async handleExpenseStart(ctx: CustomContext): Promise<void> {
@@ -170,6 +193,9 @@ export class TransactionsHandler {
       "Bekor qilish uchun /cancel buyrug'ini yuboring",
     );
     userSessions.set(ctx.appState.userId, { type: "EXPENSE", step: "amount" });
+    if (ctx.callbackQuery) {
+      await ctx.answerCallbackQuery();
+    }
   }
 
   private async handleTransferStart(ctx: CustomContext): Promise<void> {
@@ -180,6 +206,9 @@ export class TransactionsHandler {
       "Bekor qilish uchun /cancel buyrug'ini yuboring",
     );
     userSessions.set(ctx.appState.userId, { type: "TRANSFER", step: "amount" });
+    if (ctx.callbackQuery) {
+      await ctx.answerCallbackQuery();
+    }
   }
 
   private async handleBalance(ctx: CustomContext): Promise<void> {
@@ -202,6 +231,8 @@ export class TransactionsHandler {
         ],
       },
     });
-    await ctx.answerCallbackQuery();
+    if (ctx.callbackQuery) {
+      await ctx.answerCallbackQuery();
+    }
   }
 }

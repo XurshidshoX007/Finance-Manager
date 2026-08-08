@@ -169,31 +169,88 @@ async function main(): Promise<void> {
   const reportsHandler = new ReportsHandler(bot, reportsService);
   reportsHandler.register();
 
+  const mainMenuReplyMarkup = {
+    inline_keyboard: [
+      [
+        { text: "💰 Manbalar", callback_data: "sources:list" },
+        { text: "📂 Kategoriyalar", callback_data: "categories:list" },
+      ],
+      [
+        { text: "💵 Tranzaksiyalar", callback_data: "transactions:list" },
+        { text: "🏦 Kreditlar", callback_data: "credits:list" },
+      ],
+      [
+        { text: "📈 Hisobotlar", callback_data: "reports:dashboard" },
+      ],
+    ],
+  };
+
+  const getMainMenuText = (firstName: string): string =>
+    `📊 Finance Manager - Bosh menyu\n\n` +
+    `Salom, ${firstName}! Quyidagi bo'limlardan birini tanlang:`;
+
+  const sendMainMenu = async (ctx: CustomContext): Promise<void> => {
+    const firstName = ctx.from?.first_name ?? "Foydalanuvchi";
+    await ctx.reply(getMainMenuText(firstName), {
+      reply_markup: mainMenuReplyMarkup,
+    });
+  };
+
+  bot.on("message:text", async (ctx, next) => {
+    const text = ctx.message.text.toLowerCase().replace(/[‘’`]/g, "'");
+
+    if (text.startsWith("/")) {
+      await next();
+      return;
+    }
+
+    if (text.includes("ortga") || text.includes("menu")) {
+      await sendMainMenu(ctx);
+      return;
+    }
+    if (text.includes("kategoriya")) {
+      await categoriesHandler.showList(ctx);
+      return;
+    }
+    if (text.includes("manba")) {
+      await sourcesHandler.showList(ctx);
+      return;
+    }
+    if (text.includes("kredit")) {
+      await creditsHandler.showList(ctx);
+      return;
+    }
+    if (text.includes("hisobot")) {
+      await reportsHandler.showDashboard(ctx);
+      return;
+    }
+    if (text.includes("balans")) {
+      await transactionsHandler.showBalance(ctx);
+      return;
+    }
+    if (text.includes("o'tkazma") || text.includes("otkazma")) {
+      await transactionsHandler.startTransfer(ctx);
+      return;
+    }
+    if (text.includes("chiqim")) {
+      await transactionsHandler.startExpense(ctx);
+      return;
+    }
+    if (text.includes("kirim")) {
+      await transactionsHandler.startIncome(ctx);
+      return;
+    }
+
+    await next();
+  });
+
   // Menu callback
   bot.callbackQuery("menu", async (ctx) => {
     await ctx.answerCallbackQuery();
     const firstName = ctx.from?.first_name ?? "Foydalanuvchi";
-    await ctx.editMessageText(
-      `📊 Finance Manager - Bosh menyu\n\n` +
-      `Salom, ${firstName}! Quyidagi bo'limlardan birini tanlang:`,
-      {
-        reply_markup: {
-          inline_keyboard: [
-            [
-              { text: "💰 Manbalar", callback_data: "sources:list" },
-              { text: "📂 Kategoriyalar", callback_data: "categories:list" },
-            ],
-            [
-              { text: "💵 Tranzaksiyalar", callback_data: "transactions:list" },
-              { text: "🏦 Kreditlar", callback_data: "credits:list" },
-            ],
-            [
-              { text: "📈 Hisobotlar", callback_data: "reports:dashboard" },
-            ],
-          ],
-        },
-      },
-    );
+    await ctx.editMessageText(getMainMenuText(firstName), {
+      reply_markup: mainMenuReplyMarkup,
+    });
   });
 
   // ============================================
