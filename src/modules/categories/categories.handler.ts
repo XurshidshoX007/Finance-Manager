@@ -2,8 +2,7 @@ import type { Bot } from "grammy";
 import type { CustomContext } from "../auth/auth.middleware.js";
 import type { CategoriesService } from "./categories.service.js";
 import { createCategorySchema } from "./categories.types.js";
-import { createPaginationInput } from "../../shared/utils/index.js";
-import { formatMoney } from "../../shared/utils/index.js";
+import { createPaginationInput, formatMoney, isMainActionText } from "../../shared/utils/index.js";
 
 type CategoryType = "INCOME" | "EXPENSE";
 type NextFunction = () => Promise<void>;
@@ -224,6 +223,12 @@ export class CategoriesHandler {
     if (text === "/cancel") {
       userSessions.delete(ctx.appState.userId);
       await ctx.reply("❌ Kategoriya yaratish bekor qilindi.");
+      return;
+    }
+
+    if (isMainActionText(text)) {
+      userSessions.delete(ctx.appState.userId);
+      await next();
       return;
     }
 

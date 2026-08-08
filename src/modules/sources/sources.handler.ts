@@ -2,8 +2,7 @@ import type { Bot } from "grammy";
 import type { CustomContext } from "../auth/auth.middleware.js";
 import type { SourcesService } from "./sources.service.js";
 import { createSourceSchema } from "./sources.types.js";
-import { createPaginationInput } from "../../shared/utils/index.js";
-import { formatMoney } from "../../shared/utils/index.js";
+import { createPaginationInput, formatMoney, isMainActionText } from "../../shared/utils/index.js";
 
 type NextFunction = () => Promise<void>;
 
@@ -158,6 +157,12 @@ export class SourcesHandler {
     if (text === "/cancel") {
       userSessions.delete(ctx.appState.userId);
       await ctx.reply("❌ Manba yaratish bekor qilindi.");
+      return;
+    }
+
+    if (isMainActionText(text)) {
+      userSessions.delete(ctx.appState.userId);
+      await next();
       return;
     }
 

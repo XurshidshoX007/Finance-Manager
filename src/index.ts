@@ -8,6 +8,7 @@ import compression from "compression";
 import rateLimit from "express-rate-limit";
 import { loadConfig } from "./shared/config/index.js";
 import { createLogger, getLogger } from "./shared/logger/index.js";
+import { normalizeTelegramText } from "./shared/utils/index.js";
 import { createPrismaClient, disconnectPrisma } from "./shared/database/prisma.js";
 import { createRedisClient, disconnectRedis } from "./shared/database/redis.js";
 import { createAuthMiddleware, type CustomContext } from "./modules/auth/auth.middleware.js";
@@ -130,6 +131,19 @@ async function main(): Promise<void> {
 
   const bot = new Bot<CustomContext>(config.BOT_TOKEN);
 
+  bot.catch(async (err) => {
+    logger.error({ error: err.error, update: err.ctx.update }, "Bot update failed");
+    try {
+      if (err.ctx.callbackQuery) {
+        await err.ctx.answerCallbackQuery("❌ Xatolik yuz berdi. Qaytadan urinib ko'ring.");
+      } else {
+        await err.ctx.reply("❌ Xatolik yuz berdi. Qaytadan urinib ko'ring yoki /menu yuboring.");
+      }
+    } catch (replyError) {
+      logger.error({ error: replyError }, "Failed to send bot error message");
+    }
+  });
+
   const authMiddleware = createAuthMiddleware(authService);
   bot.use(authMiddleware);
 
@@ -160,7 +174,7 @@ async function main(): Promise<void> {
   const categoriesHandler = new CategoriesHandler(bot, categoriesService);
   categoriesHandler.register();
 
-  const transactionsHandler = new TransactionsHandler(bot, transactionsService, categoriesService);
+  const transactionsHandler = new TransactionsHandler(bot, transactionsService, categoriesService, sourcesService);
   transactionsHandler.register();
 
   const creditsHandler = new CreditsHandler(bot, creditsService);
@@ -197,7 +211,7 @@ async function main(): Promise<void> {
   };
 
   bot.on("message:text", async (ctx, next) => {
-    const text = ctx.message.text.toLowerCase().replace(/[‘’`]/g, "'");
+    const text = normalizeTelegramText(ctx.message.text);
 
     if (text.startsWith("/")) {
       await next();
@@ -247,10 +261,11 @@ async function main(): Promise<void> {
   // Menu callback
   bot.callbackQuery("menu", async (ctx) => {
     await ctx.answerCallbackQuery();
-    const firstName = ctx.from?.first_name ?? "Foydalanuvchi";
-    await ctx.editMessageText(getMainMenuText(firstName), {
-      reply_markup: mainMenuReplyMarkup,
-    });
+    await sendMainMenu(ctx);
+  });
+
+  bot.on("callback_query:data", async (ctx) => {
+    await ctx.answerCallbackQuery("⚠️ Tugma eskirgan. /menu yuboring.");
   });
 
   // ============================================
