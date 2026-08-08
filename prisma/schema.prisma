@@ -83,6 +83,7 @@ model User {
   sources       Source[]
   categories    Category[]
   transactions  Transaction[]
+  cancelledTransactions Transaction[] @relation("CancelledByUser")
   credits       Credit[]
   auditLogs     AuditLog[]
   notifications Notification[]
@@ -208,6 +209,7 @@ model Transaction {
   transferSource Source?       @relation("SourceFromTransfers", fields: [transferSourceId], references: [id])
   transferTarget Source?       @relation("SourceToTransfers", fields: [transferTargetId], references: [id])
   cancelledByUser User?        @relation("CancelledByUser", fields: [cancelledBy], references: [id])
+  creditSchedules CreditSchedule[]
 
   @@index([createdBy])
   @@index([type])
